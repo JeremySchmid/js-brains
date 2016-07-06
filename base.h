@@ -114,6 +114,8 @@ typedef struct debug_state
 	float DebugGraph[1000];
 	int DebugNum;
 
+	int CreatureIndex;
+
 } debug_state;
 
 typedef struct game_state

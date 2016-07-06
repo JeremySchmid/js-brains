@@ -121,32 +121,34 @@ internal void NeuralNetUpdate (debug_state* DebugState, neural_net* Net, float* 
 			DebugAssert(isfinite(TestFiring));
 
 			//exchange wobblemagnitube and wobblepival with wobblestep and wobblelimit??
-			//TestWobbleMagnitude needs a far better system -> this results in >-1 values flipping the sign, and anything with abs(val)>10 is just absurdly ballooning the WM enough that it completely dwarfs whatever the dendriteStrength is
-			DebugAssert(isfinite(RewardPunish));
 			float WobbleFactor = (float)(1.0 + AbsVal(RewardPunish));
-			
-			float TestWobbleMagnitude = NewDendrite->WobbleMagnitude * WobbleFactor;
-			if (isfinite(TestWobbleMagnitude))
-			{
-				NewDendrite->WobbleMagnitude = TestWobbleMagnitude;
-			}
-			DebugAssert(isfinite(NewDendrite->WobbleMagnitude));
-			
-			if(OldDendrite->WobbleMagnitude < 0.5f)
-			{
-				NewDendrite->WobbleMagnitude = 0.5f;
-				DebugAssert(isfinite(NewDendrite->WobbleMagnitude)); 
-			}
-
 			if (RewardPunish > 0)
 			{
-				
-				NewDendrite->Strength = OldDendrite->Strength + 0.5f * OldDendrite->CurrentWobble;
+				WobbleFactor = 1.0f / WobbleFactor;
+
+				NewDendrite->Strength = OldDendrite->Strength + 0.10f * OldDendrite->CurrentWobble;
 				DebugAssert(isfinite(NewDendrite->Strength));
-				NewDendrite->WobbleMagnitude /= WobbleFactor;
+				//NewDendrite->WobbleMagnitude /= 2.0f;
+				WobbleFactor *= WobbleFactor;
 			}
 
-			NewDendrite->WobblePiVal = OldDendrite->WobblePiVal + 0.01f;
+			float TestWobbleMagnitude = NewDendrite->WobbleMagnitude * WobbleFactor;
+			DebugAssert(isfinite(TestWobbleMagnitude));
+
+			NewDendrite->WobbleMagnitude = TestWobbleMagnitude;
+			
+			if(AbsVal(OldDendrite->WobbleMagnitude < 0.05f * AbsVal(OldDendrite->Strength)))
+			{
+				NewDendrite->WobbleMagnitude = 0.05f * AbsVal(OldDendrite->Strength);
+			}
+			if(AbsVal(OldDendrite->WobbleMagnitude < 0.10f))
+			{
+				NewDendrite->WobbleMagnitude = 0.10f;
+			}
+
+			if (RewardPunish < 0) {
+				NewDendrite->WobblePiVal = OldDendrite->WobblePiVal + 0.01f;
+			}
 			if (NewDendrite->WobblePiVal >= 6.28f)
 			{
 				NewDendrite->WobblePiVal -= 6.28f;
@@ -162,7 +164,6 @@ internal void NeuralNetUpdate (debug_state* DebugState, neural_net* Net, float* 
 
 		float Persistence = .98f;
 		TestFiring = (OldNeuron->Firing * Persistence) + (TestFiring * (1.0f - Persistence));
-		
 		DebugAssert(isfinite(TestFiring));
 
 		if (NeuronIndex < Net->NumSensorValues)
@@ -170,6 +171,9 @@ internal void NeuralNetUpdate (debug_state* DebugState, neural_net* Net, float* 
 			TestFiring = SensorValues[NeuronIndex];
 			DebugAssert(isfinite(TestFiring));
 		}
+
+
+		NewNeuron->Firing = TestFiring;
 
 		if (TestFiring == TestFiring && NeuronIndex == 14 && Debug == 1)
 		{
@@ -180,8 +184,6 @@ internal void NeuralNetUpdate (debug_state* DebugState, neural_net* Net, float* 
 			//	DebugState->DebugMode = 1;
 			//}
 		}
-
-		NewNeuron->Firing = TestFiring;
 		
 		int MotorNumber = Net->NumOfNeurons - 1 - NeuronIndex;
 		if (MotorNumber < Net->NumMotorValues)

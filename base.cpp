@@ -108,12 +108,15 @@ void DrawLine(game_offscreen_buffer* Buffer, int XStart, int YStart, int XEnd, i
 {
 	int Rise = YEnd - YStart;
 	int Run = XEnd - XStart;
+
 	float Slope = (float)((double)Rise / (double)Run);
 
 	int YProgress = 0;
 	int XProgress = 0;
 
-	while (abs(YProgress) < abs(Rise) || abs(XProgress) < abs(Run))
+	while ((abs(YProgress) < abs(Rise) || abs(XProgress) < abs(Run))
+			&& abs(YProgress) < 1000
+			&& abs(XProgress) < 1000)
 	{
 		float Progress = (float)YProgress / (float)XProgress;
 		if (SignOf(Slope) * (Slope - Progress) > 0 || Run == 0)
@@ -134,7 +137,7 @@ float CalculateCreatureFitness(creature* Creature)
 {
 	float YRootFitness = (Creature->GoalY - Creature->PositionY) / 540.0f;
 	float XRootFitness = (Creature->GoalX - Creature->PositionX) / 960.0f;
-	float UndampedFitness = -(YRootFitness * YRootFitness + XRootFitness * XRootFitness);
+	float UndampedFitness = -(float)sqrt(YRootFitness * YRootFitness + XRootFitness * XRootFitness);
 	float FinalFitness = (float)(SignOf(UndampedFitness) * log(AbsVal(UndampedFitness) + 1.0f));
 	return UndampedFitness;
 
@@ -143,7 +146,7 @@ float CalculateCreatureFitness(creature* Creature)
 void ColorValues(float Value, float* R, float* G, float* B)
 {
 	*R = -Value * 10.0f;
-	*G = AbsVal(Value);
+	*G = (float)(1/1) * (float)log(1.0f + AbsVal(Value));
 	*B = Value * 10.0f;
 
 	//if (*G > 1.0f)
@@ -271,7 +274,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
 		DrawRectangle(Buffer, 0.0f, 0.0f, (float)Buffer->Width, (float)Buffer->Height, 0.0f, 0.0f, 0.0f);
 
-		int CreatureToDraw = 3;//rand() % NumOfCreatures;
+		int CreatureToDraw = 91;//rand() % NumOfCreatures;
 
 		float XCoordinates[15];
 		float YCoordinates[15];
@@ -304,7 +307,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 			{
 				dendrite* Dendrite = &Neuron->Dendrites[DendriteIndex];
 				float DendriteScale1, DendriteScale2, DendriteScale3;
-				ColorValues(Dendrite->Strength, &DendriteScale1, &DendriteScale2, &DendriteScale3);
+				ColorValues(Dendrite->Strength + Dendrite->CurrentWobble, &DendriteScale1, &DendriteScale2, &DendriteScale3);
 				DrawLine(Buffer, (int)(XCoordinates[NeuronIndex]), (int)(YCoordinates[NeuronIndex]), (int)(XCoordinates[Dendrite->Sender]), (int)(YCoordinates[Dendrite->Sender]), DendriteScale1, DendriteScale2, DendriteScale3);
 				//drawline (curved?) function from sender position to current neuron position - additive so that both directions can be shown on one line?
 			}
@@ -321,29 +324,11 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
 			Creature->PositionX += Creature->VelocityX;
 			Creature->PositionY += Creature->VelocityY;
-			float DrawPositionX = Creature->PositionX;
-			float DrawPositionY = Creature->PositionY;
 			
 			Creature->LastFitness = Creature->CurrentFitness;
 			Creature->CurrentFitness = CalculateCreatureFitness(Creature);
 			float FitnessChange = Creature->CurrentFitness - Creature->LastFitness;
 			
-			if (Creature->PositionX > 959)
-			{
-				DrawPositionX = 959;
-			}
-			if (Creature->PositionX < 0)
-			{
-				DrawPositionX = 0;
-			}
-			if (Creature->PositionY > 539)
-			{
-				DrawPositionY = 539;
-			}
-			if (Creature->PositionY < 0)
-			{
-				DrawPositionY = 0;
-			}
 			Creature->Age++;
 
 			float* SensorValues = (float*)PushArray(&State->WorldArena, float, Net->NumSensorValues);
@@ -361,6 +346,9 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 			{
 			//	NeuralNetUpdate(Net, SensorValues, MotorValues, 0.0f);
 			}
+
+			DebugState->CreatureIndex = CreatureIndex;
+			
 			if (CreatureIndex == CreatureToDraw)
 			{
 				NeuralNetUpdate(DebugState, Net, SensorValues, MotorValues, FitnessChange, 1);
@@ -376,13 +364,13 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 				float FitnessScale1, FitnessScale2, FitnessScale3;
 				ColorValues(FitnessChange, &FitnessScale1, &FitnessScale2, &FitnessScale3);
 
-				DrawRectangle(Buffer, DrawPositionX - 4, DrawPositionY - 4, DrawPositionX + 3, DrawPositionY + 3, FitnessScale1, FitnessScale2, FitnessScale3);
-				DrawLine(Buffer, (int)Creature->GoalX, (int)Creature->GoalY, (int)DrawPositionX, (int)DrawPositionY, 1.0f, 1.0f, 0.0f);
+				DrawRectangle(Buffer, Creature->PositionX - 4, Creature->PositionY - 4, Creature->PositionX + 3, Creature->PositionY + 3, FitnessScale1, FitnessScale2, FitnessScale3);
+				DrawLine(Buffer, (int)Creature->GoalX, (int)Creature->GoalY, (int)Creature->PositionX, (int)Creature->PositionY, 1.0f, 1.0f, 0.0f);
 
 			}
 			
 			Creature->VelocityX = MotorValues[0];
-			Creature->VelocityY = -MotorValues[1];
+			Creature->VelocityY = MotorValues[1];
 
 			PopArray(&State->WorldArena, float, Net->NumSensorValues);
 			PopArray(&State->WorldArena, float, Net->NumMotorValues);
