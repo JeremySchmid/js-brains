@@ -145,7 +145,7 @@ internal void NeuralNetUpdate (debug_state* DebugState, neural_net* Net, float* 
 				NewDendrite->WobbleMagnitude = 0.10f * AbsVal(OldDendrite->Strength);
 			}
 
-			//change dendritestrengths according to their relative magnitudes of influencing their neuron
+			//change dendritestrengths according to their relative magnitudes of influencing their neuron?? how to implement dendrites being recently used becoming susceptible to reward?
 
 			//if (Reward < 0) {
 				NewDendrite->WobblePiVal = OldDendrite->WobblePiVal + 0.01f;

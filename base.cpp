@@ -170,7 +170,7 @@ boolint ButtonToggled(game_button_state* Button)
 float LogisticFunc (float Value)
 {
 
-	float Result = (float)((2.0f / (1.0f + 1.0f * pow(10.0f, -Value))) - 1.0f);
+	float Result = (float)((2.0f / (1.0f + 1.0f * pow(2.0f, -Value * 3.0f))) - 1.0f);
 
 	return Result;
 }
