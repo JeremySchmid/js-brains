@@ -146,8 +146,8 @@ internal void NeuralNetUpdate (debug_state* DebugState, neural_net* Net, float* 
 			}
 
 			//change dendritestrengths according to their relative magnitudes of influencing their neuron?? how to implement dendrites being recently used becoming susceptible to reward?
-			//make dendrite-strength the likelihood that the NeuronOfDendrite will be read and used, or maybe make it a value shoved through a 1 - exponential decay function?
-			//use this ^ to implement reward susceptibility? right now reward is equally important to all dendrites and neurons, and thats not useful in separatingthem? - cant know if they're actually moving in sync and all until you implement grabbing all the fucken data
+			//make dendrite-strength the likelihood that the NeuronOfDendrite will be read and used, or maybe make it a value shoved through a 1-expdecay function? -- not useful; adds non-useful randomness to the calculations
+			//use this ^ to implement reward susceptibility? right now reward is equally important to all dendrites and neurons, and thats not useful in separatingthem? - cant know if they're actually moving in sync and all until you implement grabbing all the fucken data -> that ^ cant be used - the brain uses the strength of the dendrite to determine frequency(in ur system intensity) and the randomness is both mostly removed thru large-scale-predictable randomness and not useful in your system -> implement a minimum value a neuron must fire to fire at all? use that as reward susceptibility? make the neuron firings andor dendritestrengths logistic or 1-expdecay funcs?
 			//remove the dendrites being checked on the sensor neurons - not really important, but they're a source of infinities/crashes that dont actually matter to the system
 
 			//if (Reward < 0) {
