@@ -115,6 +115,9 @@ typedef struct debug_state
 	int DebugNum;
 
 	int CreatureIndex;
+	int CreatureToDraw;
+	int NeuronToDraw;
+	int DendriteToDraw;
 
 } debug_state;
 

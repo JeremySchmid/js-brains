@@ -6,7 +6,7 @@
 /*
 internal boolint NeuralNetInitialize (neural_net* Net, void** Memory, uint64_t* MemorySize)
 
-internal void NeuralNetUpdate (neural_net* Net, float* SensorValues, float* MotorValues, int RewardPunish)
+internal void NeuralNetUpdate (neural_net* Net, float* SensorValues, float* MotorValues, int Reward)
 */
 #if 1
 #define DebugAssert(Expression) if (!(Expression)) {DebugState->DebugForce = 1; *(int*)0 = 0;}
@@ -96,7 +96,7 @@ internal float AbsoluteValue (float Number)
 	return Result;
 }
 
-internal void NeuralNetUpdate (debug_state* DebugState, neural_net* Net, float* SensorValues, float* MotorValues, float RewardPunish, boolint Debug)
+internal void NeuralNetUpdate (debug_state* DebugState, neural_net* Net, float* SensorValues, float* MotorValues, float Reward)
 {
 	for (int NeuronIndex = 0; NeuronIndex < Net->NumOfNeurons; NeuronIndex++)
 	{
@@ -121,18 +121,17 @@ internal void NeuralNetUpdate (debug_state* DebugState, neural_net* Net, float* 
 			DebugAssert(isfinite(TestFiring));
 
 			//exchange wobblemagnitube and wobblepival with wobblestep and wobblelimit??
-			float WobbleFactor = (float)(1.0 + AbsVal(RewardPunish));
-			if (RewardPunish > 0)
+			float WobbleFactor = (float)(1.0 + .5f * AbsVal(Reward));
+			if (Reward > 0)
 			{
 				WobbleFactor = 1.0f / WobbleFactor;
 
 				NewDendrite->Strength = OldDendrite->Strength + 0.10f * OldDendrite->CurrentWobble;
 				DebugAssert(isfinite(NewDendrite->Strength));
-				//NewDendrite->WobbleMagnitude /= 2.0f;
-				WobbleFactor *= WobbleFactor;
+				OldDendrite->WobbleMagnitude = OldDendrite->WobbleMagnitude / 2.0f;
 			}
 
-			float TestWobbleMagnitude = NewDendrite->WobbleMagnitude * WobbleFactor;
+			float TestWobbleMagnitude = OldDendrite->WobbleMagnitude * WobbleFactor;
 			DebugAssert(isfinite(TestWobbleMagnitude));
 
 			NewDendrite->WobbleMagnitude = TestWobbleMagnitude;
@@ -143,12 +142,14 @@ internal void NeuralNetUpdate (debug_state* DebugState, neural_net* Net, float* 
 			}
 			if(AbsVal(OldDendrite->WobbleMagnitude < 0.10f))
 			{
-				NewDendrite->WobbleMagnitude = 0.10f;
+				NewDendrite->WobbleMagnitude = 0.10f * AbsVal(OldDendrite->Strength);
 			}
 
-			if (RewardPunish < 0) {
+			//change dendritestrengths according to their relative magnitudes of influencing their neuron?? how to implement dendrites being recently used becoming susceptible to reward?
+
+			//if (Reward < 0) {
 				NewDendrite->WobblePiVal = OldDendrite->WobblePiVal + 0.01f;
-			}
+			//}
 			if (NewDendrite->WobblePiVal >= 6.28f)
 			{
 				NewDendrite->WobblePiVal -= 6.28f;
@@ -157,6 +158,14 @@ internal void NeuralNetUpdate (debug_state* DebugState, neural_net* Net, float* 
 			NewDendrite->CurrentWobble = (float)(NewDendrite->WobbleMagnitude * sin(NewDendrite->WobblePiVal));
 			DebugAssert(isfinite(NewDendrite->CurrentWobble));
 			
+			if (NeuronIndex == DebugState->NeuronToDraw
+					&& DendriteIndex == DebugState->DendriteToDraw
+					&& DebugState->CreatureIndex == DebugState->CreatureToDraw)
+			{
+				DebugState->DebugGraph[DebugState->DebugNum % 960] = Reward; //NewDendrite->Strength + NewDendrite->CurrentWobble;
+				DebugState->DebugNum++;
+			}
+		
 
 		}
 
@@ -175,16 +184,6 @@ internal void NeuralNetUpdate (debug_state* DebugState, neural_net* Net, float* 
 
 		NewNeuron->Firing = TestFiring;
 
-		if (TestFiring == TestFiring && NeuronIndex == 14 && Debug == 1)
-		{
-			DebugState->DebugGraph[DebugState->DebugNum % 960] = RewardPunish;
-			DebugState->DebugNum++;
-			//if (DebugState->DebugNum >= 1000)
-			//{
-			//	DebugState->DebugMode = 1;
-			//}
-		}
-		
 		int MotorNumber = Net->NumOfNeurons - 1 - NeuronIndex;
 		if (MotorNumber < Net->NumMotorValues)
 		{

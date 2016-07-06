@@ -137,8 +137,8 @@ float CalculateCreatureFitness(creature* Creature)
 {
 	float YRootFitness = (Creature->GoalY - Creature->PositionY) / 540.0f;
 	float XRootFitness = (Creature->GoalX - Creature->PositionX) / 960.0f;
-	float UndampedFitness = -(float)sqrt(YRootFitness * YRootFitness + XRootFitness * XRootFitness);
-	float FinalFitness = (float)(SignOf(UndampedFitness) * log(AbsVal(UndampedFitness) + 1.0f));
+	float UndampedFitness = -(YRootFitness * YRootFitness + XRootFitness * XRootFitness);
+	float FinalFitness = (float)(SignOf(UndampedFitness) * sqrt(AbsVal(UndampedFitness)));
 	return FinalFitness;
 
 }
@@ -146,7 +146,7 @@ float CalculateCreatureFitness(creature* Creature)
 void ColorValues(float Value, float* R, float* G, float* B)
 {
 	*R = -Value * 10.0f;
-	*G = (float)(1/1) * (float)log(1.0f + AbsVal(Value));
+	*G = AbsVal(Value);
 	*B = Value * 10.0f;
 
 	//if (*G > 1.0f)
@@ -165,6 +165,14 @@ boolint ButtonToggled(game_button_state* Button)
 			|| (Button->EndedDown && HalfTransitionCount == 1))
 			|| (!Button->EndedDown
 					&& HalfTransitionCount == 3));
+}
+
+float LogisticFunc (float Value)
+{
+
+	float Result = (float)((2.0f / (1.0f + 1.0f * pow(10.0f, Value))) - 1.0f);
+
+	return Result;
 }
 
 extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
@@ -205,6 +213,9 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 		//DebugState->DebugFile = fopen("errlog.txt", "w");
 		DebugState->DebugNum = 0;
 		DebugState->DebugMode = 0;
+		DebugState->CreatureToDraw = 100;
+		DebugState->NeuronToDraw = 0;
+		DebugState->DendriteToDraw = 0;
 
 		InitializeArena(&State->WorldArena, 
 								Memory->PermanentStorageSize - sizeof(game_state), 
@@ -274,8 +285,6 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
 		DrawRectangle(Buffer, 0.0f, 0.0f, (float)Buffer->Width, (float)Buffer->Height, 0.0f, 0.0f, 0.0f);
 
-		int CreatureToDraw = 91;//rand() % NumOfCreatures;
-
 		float XCoordinates[15];
 		float YCoordinates[15];
 		
@@ -293,7 +302,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 #if 1
 		for (int NeuronIndex = 0; NeuronIndex < NUMNEURONS; NeuronIndex++)
 		{
-			neural_net* Net = State->Nets + CreatureToDraw;
+			neural_net* Net = State->Nets + DebugState->CreatureToDraw;
 			
 			neuron* Neuron = Net->Neurons + NeuronIndex * 2 + Net->Toggle;
 
@@ -328,6 +337,8 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 			Creature->LastFitness = Creature->CurrentFitness;
 			Creature->CurrentFitness = CalculateCreatureFitness(Creature);
 			float FitnessChange = Creature->CurrentFitness - Creature->LastFitness;
+			float Reward = LogisticFunc(FitnessChange);
+			Assert(isfinite(Reward));
 			
 			Creature->Age++;
 
@@ -349,16 +360,9 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
 			DebugState->CreatureIndex = CreatureIndex;
 			
-			if (CreatureIndex == CreatureToDraw)
-			{
-				NeuralNetUpdate(DebugState, Net, SensorValues, MotorValues, FitnessChange, 1);
-			}
-			else
-			{
-				NeuralNetUpdate(DebugState, Net, SensorValues, MotorValues, FitnessChange, 0);
-			}
+			NeuralNetUpdate(DebugState, Net, SensorValues, MotorValues, Reward);
 			
-			if (CreatureIndex == CreatureToDraw)
+			if (CreatureIndex == DebugState->CreatureToDraw)
 			{
 
 				float FitnessScale1, FitnessScale2, FitnessScale3;
