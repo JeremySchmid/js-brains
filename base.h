@@ -104,6 +104,8 @@ typedef struct creature
 
 } creature;
 
+#define GRAPHSIZE 9600
+
 typedef struct debug_state
 {
 	//FILE* DebugFile;
@@ -111,8 +113,9 @@ typedef struct debug_state
 	boolint DebugMode;
 	boolint DebugForce;
 
-	float DebugGraph[1000];
+	float DebugGraph[GRAPHSIZE];
 	int DebugNum;
+	int GraphSize;
 
 	int CreatureIndex;
 	int CreatureToDraw;

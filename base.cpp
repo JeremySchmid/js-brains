@@ -104,32 +104,31 @@ internal void DrawPixel(game_offscreen_buffer* Buffer, float RealX, float RealY,
 
 }
 
-void DrawLine(game_offscreen_buffer* Buffer, int XStart, int YStart, int XEnd, int YEnd, float Red, float Blue, float Green)
+void DrawLine(game_offscreen_buffer* Buffer, float XStart, float YStart, float XEnd, float YEnd, float Red, float Blue, float Green)
 {
-	int Rise = YEnd - YStart;
-	int Run = XEnd - XStart;
+	float Rise = YEnd - YStart;
+	float Run = XEnd - XStart;
 
 	float Slope = (float)((double)Rise / (double)Run);
 
-	int YProgress = 0;
-	int XProgress = 0;
+	float YProgress = 0.0f;
+	float XProgress = 0.0f;
 
-	while ((abs(YProgress) < abs(Rise) || abs(XProgress) < abs(Run))
-			&& abs(YProgress) < 1000
-			&& abs(XProgress) < 1000)
-	{
-		float Progress = (float)YProgress / (float)XProgress;
+	do {
+		float Progress = YProgress / XProgress;
 		if (SignOf(Slope) * (Slope - Progress) > 0 || Run == 0)
 		{
-			YProgress += 1 * SignOf((float)Rise);
-			DrawPixel(Buffer, (float)(XStart + XProgress), (float)(YStart + YProgress), Red, Blue, Green);
+			YProgress += 1.0f * SignOf(Rise);
+			DrawPixel(Buffer, XStart + XProgress, YStart + YProgress, Red, Blue, Green);
 		}
 		else //if (SignOf(Slope) * (Slope - Progress) < 0 || Slope == Progress)
 		{
-			XProgress += 1 * SignOf((float)Run);
-			DrawPixel(Buffer, (float)(XStart + XProgress), (float)(YStart + YProgress), Red, Blue, Green);
+			XProgress += 1 * SignOf(Run);
+			DrawPixel(Buffer, XStart + XProgress, YStart + YProgress, Red, Blue, Green);
 		}
-	}
+	} while ((AbsVal(YProgress) < AbsVal(Rise) || AbsVal(XProgress) < AbsVal(Run))
+			&& AbsVal(YProgress) < 1000.0f
+			&& AbsVal(XProgress) < 1000.0f);
 }
 
 
@@ -137,9 +136,9 @@ float CalculateCreatureFitness(creature* Creature)
 {
 	float YRootFitness = (Creature->GoalY - Creature->PositionY) / 540.0f;
 	float XRootFitness = (Creature->GoalX - Creature->PositionX) / 960.0f;
-	float UndampedFitness = -(YRootFitness * YRootFitness + XRootFitness * XRootFitness);
-	float FinalFitness = (float)(SignOf(UndampedFitness) * sqrt(AbsVal(UndampedFitness)));
-	return FinalFitness;
+	float SquaredFitness = -(YRootFitness * YRootFitness + XRootFitness * XRootFitness);
+	float Fitness = (float)(SignOf(SquaredFitness) * sqrt(AbsVal(SquaredFitness)));
+	return Fitness;
 
 }
 
@@ -149,10 +148,16 @@ void ColorValues(float Value, float* R, float* G, float* B)
 	*G = AbsVal(Value);
 	*B = Value * 10.0f;
 
-	//if (*G > 1.0f)
+	if (*G > 1.0f)
 	{
-//		*B = 1.0f - Value / 255.0f / 255.0f;
-//		*R = *B;
+		if (Value > 0)
+		{
+			*B = 1.0f - Value / 10.0f;
+		}
+		else
+		{
+			*R = 1.0f - Value / 10.0f;
+		}
 	}
 
 	return;
@@ -170,7 +175,7 @@ boolint ButtonToggled(game_button_state* Button)
 float LogisticFunc (float Value)
 {
 
-	float Result = (float)((2.0f / (1.0f + 1.0f * pow(2.0f, -Value * 3.0f))) - 1.0f);
+	float Result = (float)(-1.0f + (2.0f / (1.0f + 1.0f * pow(2.0f, -50.0f * Value))));
 
 	return Result;
 }
@@ -184,7 +189,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 	
 	int NumOfNeurons = NUMNEURONS;
 	int MaxDendrites = NUMDENDRITES;
-	int NumOfCreatures = 200;
+	int NumOfCreatures = 20;
 	
 	for (int ControllerIndex = 0; ControllerIndex < ArrayCount(Input->Controllers); ControllerIndex++)
 	{
@@ -212,10 +217,11 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 		debug_state* DebugState = &State->DebugState;
 		//DebugState->DebugFile = fopen("errlog.txt", "w");
 		DebugState->DebugNum = 0;
-		DebugState->DebugMode = 0;
-		DebugState->CreatureToDraw = 100;
-		DebugState->NeuronToDraw = 0;
-		DebugState->DendriteToDraw = 0;
+		DebugState->GraphSize = GRAPHSIZE;
+		DebugState->DebugMode = 1;
+		DebugState->CreatureToDraw = 17;
+		DebugState->NeuronToDraw = 7;
+		DebugState->DendriteToDraw = 3;
 
 		InitializeArena(&State->WorldArena, 
 								Memory->PermanentStorageSize - sizeof(game_state), 
@@ -317,7 +323,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 				dendrite* Dendrite = &Neuron->Dendrites[DendriteIndex];
 				float DendriteScale1, DendriteScale2, DendriteScale3;
 				ColorValues(Dendrite->Strength + Dendrite->CurrentWobble, &DendriteScale1, &DendriteScale2, &DendriteScale3);
-				DrawLine(Buffer, (int)(XCoordinates[NeuronIndex]), (int)(YCoordinates[NeuronIndex]), (int)(XCoordinates[Dendrite->Sender]), (int)(YCoordinates[Dendrite->Sender]), DendriteScale1, DendriteScale2, DendriteScale3);
+				DrawLine(Buffer, XCoordinates[NeuronIndex], YCoordinates[NeuronIndex], XCoordinates[Dendrite->Sender], YCoordinates[Dendrite->Sender], DendriteScale1, DendriteScale2, DendriteScale3);
 				//drawline (curved?) function from sender position to current neuron position - additive so that both directions can be shown on one line?
 			}
 
@@ -368,13 +374,13 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 				float FitnessScale1, FitnessScale2, FitnessScale3;
 				ColorValues(FitnessChange, &FitnessScale1, &FitnessScale2, &FitnessScale3);
 
-				DrawRectangle(Buffer, Creature->PositionX - 4, Creature->PositionY - 4, Creature->PositionX + 3, Creature->PositionY + 3, FitnessScale1, FitnessScale2, FitnessScale3);
-				DrawLine(Buffer, (int)Creature->GoalX, (int)Creature->GoalY, (int)Creature->PositionX, (int)Creature->PositionY, 1.0f, 1.0f, 0.0f);
+				//DrawRectangle(Buffer, Creature->PositionX - 4, Creature->PositionY - 4, Creature->PositionX + 3, Creature->PositionY + 3, FitnessScale1, FitnessScale2, FitnessScale3);
+				DrawLine(Buffer, (float)Creature->GoalX, (float)Creature->GoalY, (float)Creature->PositionX, (float)Creature->PositionY, FitnessScale1, 1.0f, FitnessScale3);
 
 			}
 			
 			Creature->VelocityX = MotorValues[0];
-			Creature->VelocityY = MotorValues[1];
+			Creature->VelocityY = -MotorValues[1];
 
 			PopArray(&State->WorldArena, float, Net->NumSensorValues);
 			PopArray(&State->WorldArena, float, Net->NumMotorValues);
@@ -386,17 +392,45 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 		//DrawRectangle(Buffer, 0.0f, 0.0f, (float)Buffer->Width, (float)Buffer->Height, 0.0f, 0.0f, 0.0f);
 
 		float MaxValue = 0;
-		for (int i = 0; i < DebugState->DebugNum && i < 960; i++)
+		float Average[960] = {0};
+		int AverageProgress = 0;
+		int DebugProgress = 0;
+
+		int SumCount = 1 + (DebugState->DebugNum / 960);
+
+		int End = DebugState->DebugNum / SumCount;
+
+		while (AverageProgress < End)
 		{
-			if (AbsVal(DebugState->DebugGraph[i]) * 1.05f > MaxValue)
+			float Sum = 0;
+			for (int Count = 0; Count < SumCount; Count++)
 			{
-				MaxValue = 1.05f * AbsVal(DebugState->DebugGraph[i]);
+				Sum += DebugState->DebugGraph[DebugProgress % DebugState->GraphSize];
+				DebugProgress++;
+			}
+			Average[AverageProgress] = Sum / (float)SumCount;
+			AverageProgress++;
+		}
+
+		for (int j = 0; j < AverageProgress; j++)
+		{
+			if (AbsVal(Average[j]) * 1.05f > MaxValue)
+			{
+				MaxValue = 1.05f * AbsVal(Average[j]);
 			}
 		}
 
-		for (int j = 0; j < DebugState->DebugNum && j < 960; j++)
+		for (int j = 0; j < AverageProgress; j++)
 		{
-		DrawPixel(Buffer, (float)j, (float)Buffer->Height / 2.0f * (1.0f - DebugState->DebugGraph[j] / MaxValue), 1.0f, 1.0f, 1.0f);
+			DrawPixel(Buffer, (float)j, (float)Buffer->Height / 2.0f, 1.0f, 1.0f, 1.0f);
+			float EndPixel = (float)Buffer->Height / 2.0f * (1.0f - Average[j] / MaxValue);
+/*			float StartPixel = (float)Buffer->Height / 2.0f * (1.0f - (Average[j - 1] / MaxValue)) + 1.0f * SignOf(Average[j - 1] - Average[j]);
+			if (j == 0)
+			{
+				StartPixel = EndPixel;
+			}
+			DrawLine(Buffer, (float)j, StartPixel, (float)j, EndPixel, 1.0f, 1.0f, 1.0f);			*/
+			DrawPixel(Buffer, (float)j, EndPixel, 1.0f, 1.0f, 1.0f);
 		}
 
 	}

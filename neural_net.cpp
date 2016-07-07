@@ -121,14 +121,15 @@ internal void NeuralNetUpdate (debug_state* DebugState, neural_net* Net, float* 
 			DebugAssert(isfinite(TestFiring));
 
 			//exchange wobblemagnitube and wobblepival with wobblestep and wobblelimit??
-			float WobbleFactor = (float)(1.0 + .5f * AbsVal(Reward));
+			float WobbleFactor = (float)(1.0 + 1.0f * AbsVal(Reward));
 			if (Reward > 0)
 			{
 				WobbleFactor = 1.0f / WobbleFactor;
 
 				NewDendrite->Strength = OldDendrite->Strength + 0.10f * OldDendrite->CurrentWobble;
 				DebugAssert(isfinite(NewDendrite->Strength));
-				OldDendrite->WobbleMagnitude = OldDendrite->WobbleMagnitude / 2.0f;
+				//below line needs fixing - with +reward, the sin waves of the various dendrites very quickly go back to default near-zero magnitude
+				OldDendrite->WobbleMagnitude = OldDendrite->WobbleMagnitude - 1.0f * SignOf(OldDendrite->WobbleMagnitude);
 			}
 
 			float TestWobbleMagnitude = OldDendrite->WobbleMagnitude * WobbleFactor;
@@ -136,13 +137,17 @@ internal void NeuralNetUpdate (debug_state* DebugState, neural_net* Net, float* 
 
 			NewDendrite->WobbleMagnitude = TestWobbleMagnitude;
 			
-			if(AbsVal(OldDendrite->WobbleMagnitude < 0.05f * AbsVal(OldDendrite->Strength)))
+			if (AbsVal(NewDendrite->WobbleMagnitude < 0.05f * AbsVal(NewDendrite->Strength)))
 			{
-				NewDendrite->WobbleMagnitude = 0.05f * AbsVal(OldDendrite->Strength);
+				NewDendrite->WobbleMagnitude = 0.05f * AbsVal(NewDendrite->Strength);
 			}
-			if(AbsVal(OldDendrite->WobbleMagnitude < 0.10f))
+			if (AbsVal(NewDendrite->WobbleMagnitude > 5.0f * AbsVal(NewDendrite->Strength)))
 			{
-				NewDendrite->WobbleMagnitude = 0.10f * AbsVal(OldDendrite->Strength);
+				NewDendrite->WobbleMagnitude = 5.0f * SignOf(NewDendrite->WobbleMagnitude) * AbsVal(NewDendrite->Strength);
+			}
+			if (AbsVal(NewDendrite->WobbleMagnitude < 0.10f))
+			{
+				NewDendrite->WobbleMagnitude = 0.10f * AbsVal(NewDendrite->Strength);
 			}
 
 			//change dendritestrengths according to their relative magnitudes of influencing their neuron?? how to implement dendrites being recently used becoming susceptible to reward?
@@ -165,7 +170,10 @@ internal void NeuralNetUpdate (debug_state* DebugState, neural_net* Net, float* 
 					&& DendriteIndex == DebugState->DendriteToDraw
 					&& DebugState->CreatureIndex == DebugState->CreatureToDraw)
 			{
-				DebugState->DebugGraph[DebugState->DebugNum % 960] = Reward; //NewDendrite->Strength + NewDendrite->CurrentWobble;
+				//DebugState->DebugGraph[DebugState->DebugNum % DebugState->GraphSize] = Reward;
+				//DebugState->DebugGraph[DebugState->DebugNum % DebugState->GraphSize] = NewDendrite->Strength + NewDendrite->CurrentWobble;
+				DebugState->DebugGraph[DebugState->DebugNum % DebugState->GraphSize] = NewDendrite->WobbleMagnitude;
+				//DebugState->DebugGraph[DebugState->DebugNum % DebugState->GraphSize] = OldNeuron->Firing;
 				DebugState->DebugNum++;
 			}
 		

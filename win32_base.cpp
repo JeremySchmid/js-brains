@@ -546,7 +546,8 @@ internal void Win32ProcessXInputDigitalButton(DWORD XInputButtonState, game_butt
 
 internal void Win32ProcessKeyboardStateChange(game_button_state* NewButtonState, boolint IsDown)
 {
-	if(NewButtonState->EndedDown != IsDown) {
+	if (NewButtonState->EndedDown != IsDown)
+	{
 		NewButtonState->EndedDown = !!IsDown;
 		NewButtonState->HalfTransitionCount++;
 	}
@@ -937,21 +938,21 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 			CurrentDisplayDevice.dmSize = sizeof(DEVMODE);
 			CurrentDisplayDevice.dmDriverExtra = 0;
 			float MonitorRefreshHz = 60.0f;
-			//his code
+			/*his code
 			HDC RefreshDC = GetDC(Window);
 			int Win32RefreshRate = GetDeviceCaps(RefreshDC, VREFRESH);
 			if (Win32RefreshRate > 1) {
 				MonitorRefreshHz = (float)Win32RefreshRate;
 			}
 			ReleaseDC(Window, RefreshDC);
-			//end his code
-			/*my code
+			*///end his code
+			//my code
 			if (EnumDisplaySettings(0, ENUM_CURRENT_SETTINGS,  &CurrentDisplayDevice)) {
-				MonitorRefreshHz = (int)CurrentDisplayDevice.dmDisplayFrequency;
+				MonitorRefreshHz = (float)CurrentDisplayDevice.dmDisplayFrequency;
 			}
-			my code*/
+			//my code
 			
-			float GameUpdateHz = MonitorRefreshHz * 0.5f;
+			float GameUpdateHz = MonitorRefreshHz * 50.0f;//0.5f;
 			float TargetSecondsPerFrame = 1.0f / GameUpdateHz;
 
 			//Graphics stuff
@@ -1340,3 +1341,5 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 	return 0;
 }
 
+/*TODO: THIS IS NOT A FINAL PLATFORM LAYER
+ */
