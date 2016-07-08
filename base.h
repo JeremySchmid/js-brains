@@ -16,8 +16,10 @@
 #if SLOW_CODE
 	//TODO: complete assertion macro
 	#define Assert(Expression) if (!(Expression)) {*(int*)0 = 0;}
+	#define Crash() *(int*)0 = 0
 #else
 	#define Assert(Expression)
+	#define Crash()
 #endif
 
 #define Kilobytes(Value) ((Value) * 1024LL)
@@ -101,6 +103,7 @@ typedef struct creature
 
 	float CurrentFitness;
 	float LastFitness;
+	float Reward;
 
 } creature;
 

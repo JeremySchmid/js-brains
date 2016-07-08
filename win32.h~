@@ -53,7 +53,7 @@ typedef struct win32_game_code
 	//Note: Either of the callbacks can be null
 	//MUST check before calling!
 	game_get_sound_samples* GetSoundSamples;
-	game_update* Update;
+	game_update_and_render* UpdateAndRender;
 	game_render* Render;
 
 	boolint IsValid;
