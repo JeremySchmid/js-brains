@@ -1,6 +1,6 @@
 #ifndef NEURAL_NET_H
 
-#define NUMNEURONS 15
+#define NUMNEURONS 10
 #define NUMDENDRITES 4
 
 #if 1
@@ -9,35 +9,41 @@ typedef struct dendrite
 	int Sender;
 	float Strength;
 
-	float CurrentWobble;
-	float WobblePiVal;
-	float WobbleMagnitude;
+	//float CurrentWobble;
 
-	//or
-	//this? still need to try it
-	float WobbleLimit;
-	float WobbleStep;//? - size of step that the wobble should step thru to reach wobblelimit
+	//float WobbleMAgnitude;
+	//float WobblePiVal;
 
+	//float WobbleLimit;
+	//float WobbleStep;
+	
 } dendrite;
 
 typedef struct neuron
 {
 	float Firing;
+	int NumCurrentDendrites;
 
 	dendrite Dendrites[NUMDENDRITES];
 
 } neuron;
 
+#define NUMTESTCYCLES 300
+
 typedef struct neural_net
 {
-	int NumOfNeurons;
+	int NumNeurons;
 	int NumDendrites;
-	int NumSensorValues;
-	int NumMotorValues;
+	int NumSensorNeurons;
+	int NumMotorNeurons;
+
+	float CurrentFitness;
+	float LastFitness;
+	float Reward;
+
+	float PastRewards[NUMTESTCYCLES];
 	
-	boolint Toggle;
-	
-	neuron Neurons[2 * NUMNEURONS];
+	neuron Neurons[NUMNEURONS];
 	
 } neural_net;
 

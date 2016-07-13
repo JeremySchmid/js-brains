@@ -4,54 +4,103 @@
 #include "limits.h"
 
 /*
-internal boolint NeuralNetInitialize (neural_net* Net, void** Memory, uint64_t* MemorySize)
+internal boolint NeuralNetInitialize (neural_net* Net)
 
 internal void NeuralNetUpdate (neural_net* Net, float* SensorValues, float* MotorValues, int Reward)
 */
 #if 1
-#define DebugAssert(Expression) if (!(Expression)) {DebugState->DebugForce = 1; *(int*)0 = 0;}
-internal void DendriteInitialize(neural_net* Net, dendrite* Dendrite, dendrite* OtherDendrite)
+#define DebugAssert(Expression) if (!(Expression)) {DebugState->DebugForce = 1; *(int*)0 = 0;} //{NeuralNetInitialize(Net);}
+
+internal void NeuralNetCleanFirings (neural_net* Net)
 {
-	Dendrite->Sender = rand() % Net->NumOfNeurons;
+	for (int NeuronIndex = 0; NeuronIndex < Net->NumNeurons; NeuronIndex++)
+	{
+		neuron* Neuron = &Net->Neurons[NeuronIndex];
+
+		Neuron->Firing = 0;
+	}
+}
+
+internal void NeuralNetCopy (neural_net* OriginalNet, neural_net* TargetNet)
+{
+
+	*TargetNet = *OriginalNet;
+
+	for (int NeuronIndex = 0; NeuronIndex < OriginalNet->NumNeurons; NeuronIndex++)
+	{
+		neuron* Neuron = &OriginalNet->Neurons[NeuronIndex];
+		neuron* TargetNeuron = &TargetNet->Neurons[NeuronIndex];
+
+		*TargetNeuron = *Neuron;
+
+		for (int DendriteIndex = 0; DendriteIndex < OriginalNet->NumDendrites; DendriteIndex++)
+		{
+			dendrite* Dendrite = &Neuron->Dendrites[DendriteIndex];
+			dendrite* TargetDendrite = &TargetNeuron->Dendrites[DendriteIndex]; 
+
+			*TargetDendrite = *Dendrite;
+
+		}
+	}
+}
+
+internal void DendriteInitialize (neural_net* Net, neuron* Neuron, dendrite* Dendrite)
+{
+	Dendrite->Sender = -1;
+	while (Dendrite->Sender == -1)
+	{
+		int TestSender = rand() % Net->NumNeurons;
+		
+		for (int i = 0; i < Neuron->NumCurrentDendrites; i++)
+		{		
+			if (TestSender == Neuron->Dendrites[i].Sender)
+			{
+				TestSender = -1;
+			}
+		}
+		Dendrite->Sender = TestSender;
+	}
 
 	float Base = 1.0f / Net->NumDendrites;
-	float Factor = (float)((double)rand() / (double)RAND_MAX);
+	float Factor = (float)((double)rand() / (double)RAND_MAX / 2.0f);
 	int FactorSign = (rand() % 2 == 1 ? 1 : -1);
 	int Sign = (rand() % 2 == 1 ? 1 : -1);
 
 	Dendrite->Strength = Sign * Base * (1.0f + Factor * FactorSign);
 
-	Dendrite->CurrentWobble = 0.0f;
-	Dendrite->WobblePiVal = (float)((double)rand() / (double)RAND_MAX * 6.28);
-	Dendrite->WobbleMagnitude = Dendrite->Strength * 0.1f;
+	//Dendrite->CurrentWobble = 0.0f;
+	//Dendrite->WobbleLimit = Dendrite->Strength * 0.5f;
+	//Dendrite->WobbleStep = 0.005f;
+	//Dendrite->WobblePiVal = (float)((double)rand() / (double)RAND_MAX * 6.28);
+	//Dendrite->WobbleMagnitude = Dendrite->Strength * 0.1f;
 
-	*OtherDendrite = *Dendrite;
 }
 
 internal boolint NeuralNetInitialize (neural_net* Net)
 {
 
-	Net->Toggle = 0;
-
-	for (int NeuronIndex = 0; NeuronIndex < Net->NumOfNeurons; NeuronIndex++) {
+	for (int NeuronIndex = 0; NeuronIndex < Net->NumNeurons; NeuronIndex++) {
 		
-		neuron* Neuron = &Net->Neurons[NeuronIndex * 2 + Net->Toggle];
-		neuron* PairedNeuron = &Net->Neurons[NeuronIndex * 2 + !Net->Toggle];
+		neuron* Neuron = &Net->Neurons[NeuronIndex];
 
-		Neuron->Firing = (float)((double)rand() / (double)RAND_MAX); //0;
+		Neuron->Firing = 0; //(float)((double)rand() / (double)RAND_MAX);
 
-		//Dendrite Generation
-		for (int DendriteIndex = 0; DendriteIndex < Net->NumDendrites; DendriteIndex++) {
+		Neuron->NumCurrentDendrites = 0;
 
-			dendrite* Dendrite = &Neuron->Dendrites[DendriteIndex];
-			dendrite* PairedDendrite = &PairedNeuron->Dendrites[DendriteIndex];
+		if (NeuronIndex >= Net->NumSensorNeurons)
+		{
+			//Dendrite Generation
+			for (int DendriteIndex = 0; DendriteIndex < Net->NumDendrites; DendriteIndex++)
+			{
+				dendrite* Dendrite = &Neuron->Dendrites[DendriteIndex];
 
-			DendriteInitialize(Net, Dendrite, PairedDendrite);
+				DendriteInitialize(Net, Neuron, Dendrite);
 
-			//make it impossible to make two dendrites pointing to the same neuron
-			
+				Neuron->NumCurrentDendrites++;
+				//make it impossible to make two dendrites pointing to the same neuron?
+
+			}
 		}
-		*PairedNeuron = *Neuron;
 	}
 	return true;
 }
@@ -96,115 +145,82 @@ internal float AbsoluteValue (float Number)
 	return Result;
 }
 
-internal void NeuralNetUpdate (debug_state* DebugState, neural_net* Net, float* SensorValues, float* MotorValues, float Reward)
+internal void NeuralNetUpdate (debug_state* DebugState, neural_net* Net, float* SensorValues, float* MotorValues)
 {
-	for (int NeuronIndex = 0; NeuronIndex < Net->NumOfNeurons; NeuronIndex++)
+	neural_net Temp = *Net;
+
+	NeuralNetCopy(Net, &Temp);
+
+	for (int NeuronIndex = 0; NeuronIndex < Net->NumNeurons; NeuronIndex++)
 	{
 
-		neuron* OldNeuron = &Net->Neurons[NeuronIndex * 2 + Net->Toggle];
-		neuron* NewNeuron = &Net->Neurons[NeuronIndex * 2 + !Net->Toggle];
+		neuron* TempNeuron = &Temp.Neurons[NeuronIndex];
+		neuron* NewNeuron = &Net->Neurons[NeuronIndex];
 
 		float TestFiring = 0;
 
-		for (int DendriteIndex = 0; DendriteIndex < Net->NumDendrites; DendriteIndex++)
+		if (NeuronIndex >= Net->NumSensorNeurons)
 		{
-			int SenderNumber = OldNeuron->Dendrites[DendriteIndex].Sender * 2 + Net->Toggle;
+			float SumOfDendrites = 0;
 
-			dendrite* OldDendrite = &OldNeuron->Dendrites[DendriteIndex];
-			dendrite* NewDendrite = &NewNeuron->Dendrites[DendriteIndex];
-			
-			neuron* NeuronOfDendrite = &Net->Neurons[SenderNumber];
-			float Predamp = NeuronOfDendrite->Firing * (OldDendrite->Strength + OldDendrite->CurrentWobble);
-			TestFiring += (float)(SignOf(Predamp) * sqrt(AbsVal(Predamp)));
-			//TestFiring += NeuronOfDendrite->Firing * (OldDendrite->Strength + OldDendrite->CurrentWobble);
+			for (int DendriteIndex = 0; DendriteIndex < Net->NumDendrites; DendriteIndex++)
+			{
+				int SenderNumber = TempNeuron->Dendrites[DendriteIndex].Sender;
+
+				dendrite* TempDendrite = &TempNeuron->Dendrites[DendriteIndex];
+				dendrite* NewDendrite = &NewNeuron->Dendrites[DendriteIndex];
+
+				neuron* NeuronOfDendrite = &Net->Neurons[SenderNumber];
+				//float Predamp = NeuronOfDendrite->Firing * (OldDendrite->Strength + OldDendrite->CurrentWobble);
+				//TestFiring += (float)(SignOf(Predamp) * sqrt(AbsVal(Predamp)));
+				TestFiring += NeuronOfDendrite->Firing * TempDendrite->Strength;
+
+				SumOfDendrites += AbsVal(TempDendrite->Strength);
+
+				if (NeuronIndex >= Net->NumSensorNeurons)
+				{
+					DebugAssert(isfinite(TestFiring));
+				}
+
+				//change dendritestrengths according to their relative magnitudes of influencing their neuron?? how to implement dendrites being recently used becoming susceptible to reward?
+				//make dendrite-strength the likelihood that the NeuronOfDendrite will be read and used, or maybe make it a value shoved through a 1-expdecay function? -- not useful; adds non-useful randomness to the calculations
+				//use this ^ to implement reward susceptibility? right now reward is equally important to all dendrites and neurons, and thats not useful in separatingthem? - cant know if they're actually moving in sync and all until you implement grabbing all the fucken data -> that ^ cant be used - the brain uses the strength of the dendrite to determine frequency(in ur system intensity) and the randomness is both mostly removed thru large-scale-predictable randomness and not useful in your system -> implement a minimum value a neuron must fire to fire at all? use that as reward susceptibility? make the neuron firings andor dendritestrengths logistic or 1-expdecay funcs?
+				//remove the dendrites being checked on the sensor neurons - not really important, but they're a source of infinities/crashes that dont actually matter to the system
+
+				if (NeuronIndex == DebugState->NeuronToDraw
+						&& DendriteIndex == DebugState->DendriteToDraw
+						&& DebugState->CreatureIndex == DebugState->CreatureToDraw)
+				{
+					//DebugState->DebugGraph[DebugState->DebugNum % DebugState->GraphSize] = Net->Reward;
+					//DebugState->DebugGraph[DebugState->DebugNum % DebugState->GraphSize] = NewDendrite->Strength; 
+					//DebugState->DebugGraph[DebugState->DebugNum % DebugState->GraphSize] = TempNeuron->Firing;
+					//DebugState->DebugNum++;
+				}
+			}
+
+			TestFiring /= SumOfDendrites;
+
+			//float Persistence = .96f;
+			//TestFiring = (TempNeuron->Firing * Persistence) + (TestFiring * (1.0f - Persistence));
 
 			DebugAssert(isfinite(TestFiring));
-
-			//exchange wobblemagnitube and wobblepival with wobblestep and wobblelimit??
-			float WobbleFactor = (float)(1.0 + 1.0f * AbsVal(Reward));
-			if (Reward > 0)
-			{
-				WobbleFactor = 1.0f / WobbleFactor;
-
-				NewDendrite->Strength = OldDendrite->Strength + 0.10f * OldDendrite->CurrentWobble;
-				DebugAssert(isfinite(NewDendrite->Strength));
-				//below line needs fixing - with +reward, the sin waves of the various dendrites very quickly go back to default near-zero magnitude
-				OldDendrite->WobbleMagnitude = OldDendrite->WobbleMagnitude - 1.0f * SignOf(OldDendrite->WobbleMagnitude);
-			}
-
-			float TestWobbleMagnitude = OldDendrite->WobbleMagnitude * WobbleFactor;
-			DebugAssert(isfinite(TestWobbleMagnitude));
-
-			NewDendrite->WobbleMagnitude = TestWobbleMagnitude;
-			
-			if (AbsVal(NewDendrite->WobbleMagnitude < 0.05f * AbsVal(NewDendrite->Strength)))
-			{
-				NewDendrite->WobbleMagnitude = 0.05f * AbsVal(NewDendrite->Strength);
-			}
-			if (AbsVal(NewDendrite->WobbleMagnitude > 5.0f * AbsVal(NewDendrite->Strength)))
-			{
-				NewDendrite->WobbleMagnitude = 5.0f * SignOf(NewDendrite->WobbleMagnitude) * AbsVal(NewDendrite->Strength);
-			}
-			if (AbsVal(NewDendrite->WobbleMagnitude < 0.10f))
-			{
-				NewDendrite->WobbleMagnitude = 0.10f * AbsVal(NewDendrite->Strength);
-			}
-
-			//change dendritestrengths according to their relative magnitudes of influencing their neuron?? how to implement dendrites being recently used becoming susceptible to reward?
-			//make dendrite-strength the likelihood that the NeuronOfDendrite will be read and used, or maybe make it a value shoved through a 1-expdecay function? -- not useful; adds non-useful randomness to the calculations
-			//use this ^ to implement reward susceptibility? right now reward is equally important to all dendrites and neurons, and thats not useful in separatingthem? - cant know if they're actually moving in sync and all until you implement grabbing all the fucken data -> that ^ cant be used - the brain uses the strength of the dendrite to determine frequency(in ur system intensity) and the randomness is both mostly removed thru large-scale-predictable randomness and not useful in your system -> implement a minimum value a neuron must fire to fire at all? use that as reward susceptibility? make the neuron firings andor dendritestrengths logistic or 1-expdecay funcs?
-			//remove the dendrites being checked on the sensor neurons - not really important, but they're a source of infinities/crashes that dont actually matter to the system
-
-			//if (Reward < 0) {
-				NewDendrite->WobblePiVal = OldDendrite->WobblePiVal + 0.01f;
-			//}
-			if (NewDendrite->WobblePiVal >= 6.28f)
-			{
-				NewDendrite->WobblePiVal -= 6.28f;
-			}
-
-			NewDendrite->CurrentWobble = (float)(NewDendrite->WobbleMagnitude * sin(NewDendrite->WobblePiVal));
-			DebugAssert(isfinite(NewDendrite->CurrentWobble));
-			
-			if (NeuronIndex == DebugState->NeuronToDraw
-					&& DendriteIndex == DebugState->DendriteToDraw
-					&& DebugState->CreatureIndex == DebugState->CreatureToDraw)
-			{
-				//DebugState->DebugGraph[DebugState->DebugNum % DebugState->GraphSize] = Reward;
-				//DebugState->DebugGraph[DebugState->DebugNum % DebugState->GraphSize] = NewDendrite->Strength + NewDendrite->CurrentWobble;
-				DebugState->DebugGraph[DebugState->DebugNum % DebugState->GraphSize] = NewDendrite->WobbleMagnitude;
-				//DebugState->DebugGraph[DebugState->DebugNum % DebugState->GraphSize] = OldNeuron->Firing;
-				DebugState->DebugNum++;
-			}
-		
-
 		}
-
-		TestFiring /= Net->NumDendrites;
-
-		float Persistence = .98f;
-		TestFiring = (OldNeuron->Firing * Persistence) + (TestFiring * (1.0f - Persistence));
-		DebugAssert(isfinite(TestFiring));
-
-		if (NeuronIndex < Net->NumSensorValues)
+		else if (NeuronIndex < Net->NumSensorNeurons)
 		{
 			TestFiring = SensorValues[NeuronIndex];
 			DebugAssert(isfinite(TestFiring));
 		}
 
-
 		NewNeuron->Firing = TestFiring;
 
-		int MotorNumber = Net->NumOfNeurons - 1 - NeuronIndex;
-		if (MotorNumber < Net->NumMotorValues)
+		int MotorNumber = Net->NumNeurons - 1 - NeuronIndex;
+		if (MotorNumber < Net->NumMotorNeurons)
 		{
 			MotorValues[MotorNumber] = NewNeuron->Firing;
 			DebugAssert(MotorValues[MotorNumber] == MotorValues[MotorNumber]);
 		}
 		
 	}
-	
-	Net->Toggle = !Net->Toggle;
 	return;
 }
 
