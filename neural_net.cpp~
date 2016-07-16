@@ -200,8 +200,8 @@ internal void NeuralNetUpdate (debug_state* DebugState, neural_net* Net, float* 
 
 			TestFiring /= SumOfDendrites;
 
-			float Persistence = .96f;
-			TestFiring = (TempNeuron->Firing * Persistence) + (TestFiring * (1.0f - Persistence));
+			//float Persistence = .96f;
+			//TestFiring = (TempNeuron->Firing * Persistence) + (TestFiring * (1.0f - Persistence));
 
 			DebugAssert(isfinite(TestFiring));
 		}

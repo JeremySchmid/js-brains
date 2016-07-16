@@ -161,8 +161,6 @@ internal void NeuralNetUpdate (debug_state* DebugState, neural_net* Net, float* 
 
 		if (NeuronIndex >= Net->NumSensorNeurons)
 		{
-			float SumOfDendrites = 0;
-
 			for (int DendriteIndex = 0; DendriteIndex < Net->NumDendrites; DendriteIndex++)
 			{
 				int SenderNumber = TempNeuron->Dendrites[DendriteIndex].Sender;
@@ -174,8 +172,6 @@ internal void NeuralNetUpdate (debug_state* DebugState, neural_net* Net, float* 
 				//float Predamp = NeuronOfDendrite->Firing * (OldDendrite->Strength + OldDendrite->CurrentWobble);
 				//TestFiring += (float)(SignOf(Predamp) * sqrt(AbsVal(Predamp)));
 				TestFiring += NeuronOfDendrite->Firing * TempDendrite->Strength;
-
-				SumOfDendrites += AbsVal(TempDendrite->Strength);
 
 				if (NeuronIndex >= Net->NumSensorNeurons)
 				{
@@ -198,10 +194,8 @@ internal void NeuralNetUpdate (debug_state* DebugState, neural_net* Net, float* 
 				}
 			}
 
-			TestFiring /= SumOfDendrites;
-
-			//float Persistence = .96f;
-			//TestFiring = (TempNeuron->Firing * Persistence) + (TestFiring * (1.0f - Persistence));
+			float Persistence = .98f;
+			TestFiring = (TempNeuron->Firing * Persistence) + (TestFiring * (1.0f - Persistence));
 
 			DebugAssert(isfinite(TestFiring));
 		}
