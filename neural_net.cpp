@@ -168,7 +168,7 @@ internal void NeuralNetUpdate (debug_state* DebugState, neural_net* Net, float* 
 				dendrite* TempDendrite = &TempNeuron->Dendrites[DendriteIndex];
 				dendrite* NewDendrite = &NewNeuron->Dendrites[DendriteIndex];
 
-				neuron* NeuronOfDendrite = &Net->Neurons[SenderNumber];
+				neuron* NeuronOfDendrite = &Temp.Neurons[SenderNumber];
 				//float Predamp = NeuronOfDendrite->Firing * (OldDendrite->Strength + OldDendrite->CurrentWobble);
 				//TestFiring += (float)(SignOf(Predamp) * sqrt(AbsVal(Predamp)));
 				TestFiring += NeuronOfDendrite->Firing * TempDendrite->Strength;
@@ -182,6 +182,9 @@ internal void NeuralNetUpdate (debug_state* DebugState, neural_net* Net, float* 
 				//make dendrite-strength the likelihood that the NeuronOfDendrite will be read and used, or maybe make it a value shoved through a 1-expdecay function? -- not useful; adds non-useful randomness to the calculations
 				//use this ^ to implement reward susceptibility? right now reward is equally important to all dendrites and neurons, and thats not useful in separatingthem? - cant know if they're actually moving in sync and all until you implement grabbing all the fucken data -> that ^ cant be used - the brain uses the strength of the dendrite to determine frequency(in ur system intensity) and the randomness is both mostly removed thru large-scale-predictable randomness and not useful in your system -> implement a minimum value a neuron must fire to fire at all? use that as reward susceptibility? make the neuron firings andor dendritestrengths logistic or 1-expdecay funcs?
 				//remove the dendrites being checked on the sensor neurons - not really important, but they're a source of infinities/crashes that dont actually matter to the system
+
+
+				//change neurons to use logistic functions with some high-magnitude boundary and a near-1 slope for most of that?
 
 				if (NeuronIndex == DebugState->NeuronToDraw
 						&& DendriteIndex == DebugState->DendriteToDraw

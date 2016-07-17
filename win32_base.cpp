@@ -1307,7 +1307,14 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 
 						if(Game.Update)
 						{
-							Game.Update(&Thread, &GameMemory, NewInput);
+							for (int UpdateIndex = 0; UpdateIndex < NUMTESTCYCLES; UpdateIndex++)
+							{
+								if (UpdateIndex == NUMTESTCYCLES - 5 && Game.Render)
+								{
+									Game.Render(&Thread, &GameMemory, &Buffer);
+								}
+								Game.Update(&Thread, &GameMemory, NewInput);
+							}
 						}
 						LARGE_INTEGER PostUpdate = Win32GetWallClock();
 						UpdateAndInputTime = Win32GetSecondsElapsed(PreInput, PostUpdate);
@@ -1425,7 +1432,7 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 						float SecondsElapsedForFrame = WorkSecondsElapsed;
 
 						DWORD MSLeft = (DWORD)(1000.0f * (TargetSecondsPerFrame - SecondsElapsedForFrame));
-						if (SecondsElapsedForFrame > TargetSecondsPerFrame)
+/*						if (SecondsElapsedForFrame > TargetSecondsPerFrame)
 						{
 							LARGE_INTEGER Prerender = Win32GetWallClock();
 							if (Game.Render)
@@ -1470,7 +1477,7 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 
 
 						}
-
+*/
 						if (SleepIsGranular && SecondsElapsedForFrame < TargetSecondsPerFrame)
 						{
 							if (MSLeft > 0)
