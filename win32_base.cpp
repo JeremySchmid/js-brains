@@ -1305,14 +1305,28 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 					if (!GlobalPause)
 					{
 
-						if(Game.Update)
+						if (GlobalFast)
 						{
-							for (int UpdateIndex = 0; UpdateIndex < NUMTESTCYCLES; UpdateIndex++)
+							if(Game.Update)
 							{
-								if (UpdateIndex == NUMTESTCYCLES - 5 && Game.Render)
+								for (int UpdateIndex = 0; UpdateIndex < NUMTESTCYCLES; UpdateIndex++)
 								{
-									Game.Render(&Thread, &GameMemory, &Buffer);
+									if (UpdateIndex == NUMTESTCYCLES - 5 && Game.Render)
+									{
+										Game.Render(&Thread, &GameMemory, &Buffer);
+									}
+									Game.Update(&Thread, &GameMemory, NewInput);
 								}
+							}
+						}
+						else
+						{
+							if (Game.Render)
+							{
+								Game.Render(&Thread, &GameMemory, &Buffer);
+							}
+							if (Game.Update)
+							{
 								Game.Update(&Thread, &GameMemory, NewInput);
 							}
 						}

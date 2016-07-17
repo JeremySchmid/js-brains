@@ -1,7 +1,7 @@
 #ifndef NEURAL_NET_H
 
 #define NUMNEURONS 10
-#define NUMDENDRITES 4
+#define NUMDENDRITES 6
 
 #if 1
 typedef struct dendrite
