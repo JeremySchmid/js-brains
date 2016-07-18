@@ -210,8 +210,8 @@ internal void NeuralNetUpdate (debug_state* DebugState, neural_net* Net, float* 
 
 		NewNeuron->Firing = TestFiring;
 
-		int MotorNumber = Net->NumNeurons - 1 - NeuronIndex;
-		if (MotorNumber < Net->NumMotorNeurons)
+		int MotorNumber = NeuronIndex - (Net->NumNeurons - Net->NumMotorNeurons);
+		if (MotorNumber >= 0)
 		{
 			MotorValues[MotorNumber] = NewNeuron->Firing;
 			DebugAssert(MotorValues[MotorNumber] == MotorValues[MotorNumber]);

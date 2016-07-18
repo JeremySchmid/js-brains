@@ -1,6 +1,6 @@
 #ifndef NEURAL_NET_H
 
-#define NUMNEURONS 11
+#define NUMNEURONS 10
 #define NUMDENDRITES 6
 
 #if 1
@@ -28,7 +28,7 @@ typedef struct neuron
 
 } neuron;
 
-#define NUMTESTCYCLES 90
+#define NUMTESTCYCLES 300
 
 typedef struct neural_net
 {

@@ -168,7 +168,7 @@ internal void NeuralNetUpdate (debug_state* DebugState, neural_net* Net, float* 
 				dendrite* TempDendrite = &TempNeuron->Dendrites[DendriteIndex];
 				dendrite* NewDendrite = &NewNeuron->Dendrites[DendriteIndex];
 
-				neuron* NeuronOfDendrite = &Net->Neurons[SenderNumber];
+				neuron* NeuronOfDendrite = &Temp.Neurons[SenderNumber];
 				//float Predamp = NeuronOfDendrite->Firing * (OldDendrite->Strength + OldDendrite->CurrentWobble);
 				//TestFiring += (float)(SignOf(Predamp) * sqrt(AbsVal(Predamp)));
 				TestFiring += NeuronOfDendrite->Firing * TempDendrite->Strength;
@@ -210,8 +210,8 @@ internal void NeuralNetUpdate (debug_state* DebugState, neural_net* Net, float* 
 
 		NewNeuron->Firing = TestFiring;
 
-		int MotorNumber = Net->NumNeurons - 1 - NeuronIndex;
-		if (MotorNumber < Net->NumMotorNeurons)
+		int MotorNumber = NeuronIndex - (Net->NumNeurons - Net->NumMotorNeurons);
+		if (MotorNumber >= 0)
 		{
 			MotorValues[MotorNumber] = NewNeuron->Firing;
 			DebugAssert(MotorValues[MotorNumber] == MotorValues[MotorNumber]);

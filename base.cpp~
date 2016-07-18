@@ -225,7 +225,7 @@ float CalculateCreatureFitness(creature* Creature)
 	float XFitness = (Creature->GoalY - Creature->PositionY) / 540.0f;
 	float YFitness = (Creature->GoalX - Creature->PositionX) / 960.0f;
 	float DistFitness = -(float)sqrt(YFitness * YFitness + XFitness * XFitness);
-	float VelocityFitness = -(float)sqrt(Creature->VelocityX * Creature->VelocityX + Creature->VelocityY * Creature->VelocityY);
+	//float VelocityFitness = -(float)sqrt(Creature->VelocityX * Creature->VelocityX + Creature->VelocityY * Creature->VelocityY);
 
 	Result = DistFitness;// + VelocityFitness;
 	Assert(isfinite(Result));
@@ -235,10 +235,10 @@ float CalculateCreatureFitness(creature* Creature)
 
 void ColorValues(float Value, float* R, float* G, float* B)
 {
-	*R = -Value;// * 10.0f;
-	*G = AbsVal(Value) / 10.0f;
-	*B = Value;// * 10.0f;
-
+	*R = -Value * 4.0f;
+	*G = AbsVal(Value) / 4.0f;
+	*B = Value * 4.0f;
+/*
 	if (*G > 1.0f)
 	{
 		if (Value > 0)
@@ -250,7 +250,7 @@ void ColorValues(float Value, float* R, float* G, float* B)
 			*R = 1.0f - Value / 100.0f;
 		}
 	}
-
+*/
 	return;
 }
 
@@ -281,7 +281,7 @@ void CreatureInitialize(creature* Creature)
 	Creature->Age = 0;
 }
 
-#define NUMCREATURES 100
+#define NUMCREATURES 700
 
 extern "C" GAME_UPDATE(GameUpdate)
 {
@@ -450,6 +450,8 @@ extern "C" GAME_UPDATE(GameUpdate)
 			}
 			FirstHalfRewards /= NumCreatures / 2;
 			
+			DebugState->DebugGraph[DebugState->DebugNum] = FirstHalfRewards;
+			DebugState->DebugNum++;
 			for (int CreatureIndex = NumCreatures / 2; CreatureIndex < NumCreatures; CreatureIndex++)
 			{
 				SecondHalfRewards += AverageRewards[CreatureIndex];
@@ -459,7 +461,8 @@ extern "C" GAME_UPDATE(GameUpdate)
 			for (int CreatureIndex = 0; CreatureIndex < NumCreatures / 2; CreatureIndex++)
 			{
 				CreatureInitialize(State->Creatures + CreatureIndex);
-				CreatureInitialize(State->Creatures + CreatureIndex + NumCreatures / 2);
+				*(State->Creatures + CreatureIndex + NumCreatures / 2) = *(State->Creatures + CreatureIndex);
+				//CreatureInitialize(State->Creatures + CreatureIndex + NumCreatures / 2);
 				neural_net* FirstHalfNet = State->Nets + CreatureIndex;
 				neural_net* SecondHalfNet = State->Nets + CreatureIndex + NumCreatures / 2;
 				if (FirstHalfRewards >= SecondHalfRewards)
@@ -478,11 +481,11 @@ extern "C" GAME_UPDATE(GameUpdate)
 			int RandomDendrite = rand() % State->Nets->NumDendrites;
 
 			int RandomSign = (rand() % 2 == 0 ? 1 : -1);
-			float RandomAmount = (rand() % 2 == 0 ? RandomSign * 1.1f : RandomSign * 0.9f);
+			float RandomAmount = (rand() % 2 == 0 ? 1.05f : 0.95f);
 
 			int RandomDendriteSender = rand() % (State->Nets->NumNeurons);
 
-			int RandomIf = rand() % 10;
+			int RandomIf = rand() % 50;
 
 			for (int CreatureIndex = NumCreatures / 2; CreatureIndex < NumCreatures; CreatureIndex++)
 			{
@@ -490,9 +493,13 @@ extern "C" GAME_UPDATE(GameUpdate)
 				neuron* Neuron = &Net->Neurons[RandomNeuron];
 				dendrite* Dendrite = &Neuron->Dendrites[RandomDendrite];
 
-				if (RandomIf >= 2)
+				if (RandomIf >= 4)
 				{
 					Dendrite->Strength *= RandomAmount;
+				}
+				else if (RandomIf == 3)
+				{
+					Dendrite->Strength *= -1.0f;
 				}
 				else
 				{
@@ -552,7 +559,7 @@ extern "C" GAME_RENDER(GameRender)
 			ColorValues(Creature->Reward, &FitnessScale1, &FitnessScale2, &FitnessScale3);
 
 			//DrawRectangle(Buffer, Creature->PositionX - 4, Creature->PositionY - 4, Creature->PositionX + 3, Creature->PositionY + 3, FitnessScale1, FitnessScale2, FitnessScale3);
-			DrawLine(Buffer, (float)Creature->GoalX, (float)Creature->GoalY, (float)Creature->PositionX, (float)Creature->PositionY, FitnessScale1, 1.0f, FitnessScale3);
+			//DrawLine(Buffer, (float)Creature->GoalX, (float)Creature->GoalY, (float)Creature->PositionX, (float)Creature->PositionY, FitnessScale1, 1.0f, FitnessScale3);
 
 		//}
 
