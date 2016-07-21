@@ -1,0 +1,12 @@
+#ifndef MAGIC_NUMBERS_H
+
+
+#define NUMNEURONS 11
+#define NUMDENDRITES 6
+
+#define NUMTESTCYCLES 180
+
+#define NUMCREATURES 300
+
+#define MAGIC_NUMBERS_H
+#endif

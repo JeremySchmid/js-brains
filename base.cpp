@@ -1,5 +1,7 @@
 #include "stdlib.h"
 #include "stdio.h"
+
+#include "magic_numbers.h"
 #include "base.h"
 #include "base_intrinsics.h"
 #include "base_tiles.h"
@@ -272,16 +274,14 @@ float LogisticFunc (float Value)
 }
 void CreatureInitialize(creature* Creature)
 {
-	Creature->PositionX = (float)(rand() % 960);
-	Creature->PositionY = (float)(rand() % 540);
+	Creature->PositionX = (float)(960 / 2);//(float)(rand() % 960);
+	Creature->PositionY = (float)(540 / 2);//(float)(rand() % 540);
 	Creature->VelocityX = 0;
 	Creature->VelocityY = 0;
 	Creature->GoalX = rand() % 960;
 	Creature->GoalY = rand() % 540;
 	Creature->Age = 0;
 }
-
-#define NUMCREATURES 700
 
 extern "C" GAME_UPDATE(GameUpdate)
 {
@@ -317,7 +317,8 @@ extern "C" GAME_UPDATE(GameUpdate)
 
 		debug_state* DebugState = &State->DebugState;
 		//DebugState->DebugFile = fopen("errlog.txt", "w");
-		DebugState->DebugNum = 0;
+		DebugState->DebugNum1 = 0;
+		DebugState->DebugNum2 = 0;
 		DebugState->GraphSize = GRAPHSIZE;
 		DebugState->DebugMode = 1;
 		DebugState->CreatureToDraw = 6;
@@ -427,7 +428,7 @@ extern "C" GAME_UPDATE(GameUpdate)
 
 		}
 
-		if (State->Creatures->Age >= NUMTESTCYCLES)
+		if (State->Creatures->Age > NUMTESTCYCLES - 1)
 		{
 			float AverageRewards[NUMCREATURES];
 			for (int CreatureIndex = 0; CreatureIndex < NumCreatures; CreatureIndex++)
@@ -450,13 +451,17 @@ extern "C" GAME_UPDATE(GameUpdate)
 			}
 			FirstHalfRewards /= NumCreatures / 2;
 			
-			DebugState->DebugGraph[DebugState->DebugNum] = FirstHalfRewards;
-			DebugState->DebugNum++;
+			DebugState->DebugGraph1[DebugState->DebugNum1 % DebugState->GraphSize] = FirstHalfRewards;
+			DebugState->DebugNum1++;
+
 			for (int CreatureIndex = NumCreatures / 2; CreatureIndex < NumCreatures; CreatureIndex++)
 			{
 				SecondHalfRewards += AverageRewards[CreatureIndex];
 			}
 			SecondHalfRewards /= NumCreatures / 2;
+
+			DebugState->DebugGraph2[DebugState->DebugNum2 % DebugState->GraphSize] = SecondHalfRewards;
+			DebugState->DebugNum2++;
 
 			for (int CreatureIndex = 0; CreatureIndex < NumCreatures / 2; CreatureIndex++)
 			{
@@ -481,11 +486,11 @@ extern "C" GAME_UPDATE(GameUpdate)
 			int RandomDendrite = rand() % State->Nets->NumDendrites;
 
 			int RandomSign = (rand() % 2 == 0 ? 1 : -1);
-			float RandomAmount = (rand() % 2 == 0 ? 1.05f : 0.95f);
+			float RandomAmount = (rand() % 2 == 0 ? 1.1f : 0.90f);
 
 			int RandomDendriteSender = rand() % (State->Nets->NumNeurons);
 
-			int RandomIf = rand() % 50;
+			int RandomIf = rand() % 2;
 
 			for (int CreatureIndex = NumCreatures / 2; CreatureIndex < NumCreatures; CreatureIndex++)
 			{
@@ -493,17 +498,18 @@ extern "C" GAME_UPDATE(GameUpdate)
 				neuron* Neuron = &Net->Neurons[RandomNeuron];
 				dendrite* Dendrite = &Neuron->Dendrites[RandomDendrite];
 
-				if (RandomIf >= 4)
+				Dendrite->Strength *= RandomAmount;
+
+				if (Dendrite->Strength < 0.000001f)
 				{
-					Dendrite->Strength *= RandomAmount;
-				}
-				else if (RandomIf == 3)
-				{
-					Dendrite->Strength *= -1.0f;
-				}
-				else
-				{
-					Dendrite->Sender = RandomDendriteSender;
+					if (RandomIf)
+					{
+						Dendrite->Strength *= -1.0f;
+					}
+					else
+					{
+						Dendrite->Sender = RandomDendriteSender;
+					}
 				}
 			}
 
@@ -559,7 +565,7 @@ extern "C" GAME_RENDER(GameRender)
 			ColorValues(Creature->Reward, &FitnessScale1, &FitnessScale2, &FitnessScale3);
 
 			//DrawRectangle(Buffer, Creature->PositionX - 4, Creature->PositionY - 4, Creature->PositionX + 3, Creature->PositionY + 3, FitnessScale1, FitnessScale2, FitnessScale3);
-			//DrawLine(Buffer, (float)Creature->GoalX, (float)Creature->GoalY, (float)Creature->PositionX, (float)Creature->PositionY, FitnessScale1, 1.0f, FitnessScale3);
+			DrawLine(Buffer, (float)Creature->GoalX, (float)Creature->GoalY, (float)Creature->PositionX, (float)Creature->PositionY, FitnessScale1, 1.0f, FitnessScale3);
 
 		//}
 
@@ -613,54 +619,82 @@ extern "C" GAME_RENDER(GameRender)
 	{
 
 		float MaxValue = 0;
-		float Average[960] = {0};
-		int AverageProgress = 0;
-		int DebugProgress = 0;
+		float Average1[960] = {0};
+		int AverageProgress1 = 0;
+		float Average2[960] = {0};
+		int AverageProgress2 = 0;
+		int DebugProgress1 = 0;
+		int DebugProgress2 = 0;
 
-		int SumCount = 1 + (DebugState->DebugNum / 960);
+		int SumCount = 1 + (DebugState->DebugNum1 / 960);
 		if (SumCount > DebugState->GraphSize / 960)
 		{
 			SumCount = DebugState->GraphSize / 960;
 		}
 
-		int End = DebugState->DebugNum / SumCount;
+		int End = DebugState->DebugNum1 / SumCount;
 		if (End > DebugState->GraphSize / SumCount)
 		{
 			End = DebugState->GraphSize / SumCount;
 		}
 
-		while (AverageProgress < End)
+		while (AverageProgress1 < End)
 		{
 			float Sum = 0;
 			for (int Count = 0; Count < SumCount; Count++)
 			{
-				Sum += DebugState->DebugGraph[DebugProgress % DebugState->GraphSize];
-				DebugProgress++;
+				Sum += DebugState->DebugGraph1[DebugProgress1 % DebugState->GraphSize];
+				DebugProgress1++;
 			}
 
-			Average[AverageProgress] = Sum / (float)SumCount;
-			AverageProgress++;
-		}
+			Average1[AverageProgress1] = Sum / (float)SumCount;
+			AverageProgress1++;
 
-		for (int j = 0; j < AverageProgress; j++)
-		{
-			if (AbsVal(Average[j]) * 1.05f > MaxValue)
+			Sum = 0;
+			for (int Count = 0; Count < SumCount; Count++)
 			{
-				MaxValue = 1.05f * AbsVal(Average[j]);
+				Sum += DebugState->DebugGraph2[DebugProgress2 % DebugState->GraphSize];
+				DebugProgress2++;
+			}
+
+			Average2[AverageProgress2] = Sum / (float)SumCount;
+			AverageProgress2++;
+		}
+
+		for (int j = 0; j < AverageProgress1; j++)
+		{
+			if (AbsVal(Average1[j]) * 1.05f > MaxValue)
+			{
+				MaxValue = 1.05f * AbsVal(Average1[j]);
+			}
+			if (AbsVal(Average2[j]) * 1.05f > MaxValue)
+			{
+				MaxValue = 1.05f * AbsVal(Average2[j]);
 			}
 		}
 
-		for (int j = 0; j < AverageProgress; j++)
+		for (int j = 0; j < AverageProgress1; j++)
 		{
 			DrawPixel(Buffer, (float)j, (float)Buffer->Height / 2.0f, 1.0f, 1.0f, 1.0f);
-			float EndPixel = (float)Buffer->Height / 2.0f * (1.0f - Average[j] / MaxValue);
-			/*			float StartPixel = (float)Buffer->Height / 2.0f * (1.0f - (Average[j - 1] / MaxValue)) + 1.0f * SignOf(Average[j - 1] - Average[j]);
-						if (j == 0)
-						{
-						StartPixel = EndPixel;
-						}
-						DrawLine(Buffer, (float)j, StartPixel, (float)j, EndPixel, 1.0f, 1.0f, 1.0f);			*/
-			DrawPixel(Buffer, (float)j, EndPixel, 1.0f, 1.0f, 1.0f);
+
+			if (Average1[j] >= Average2[j])
+			{
+				float EndPixel = (float)Buffer->Height / 2.0f * (1.0f - Average1[j] / MaxValue);
+				DrawLine(Buffer, (float)j, EndPixel, (float)j, EndPixel + 3, 1.0f, 0.0f, 0.0f);
+				//DrawPixel(Buffer, (float)j, EndPixel, 1.0f, 0.0f, 0.0f);
+			}
+			else
+			{
+				float EndPixel = (float)Buffer->Height / 2.0f * (1.0f - Average2[j] / MaxValue);
+				/*			float StartPixel = (float)Buffer->Height / 2.0f * (1.0f - (Average[j - 1] / MaxValue)) + 1.0f * SignOf(Average[j - 1] - Average[j]);
+							if (j == 0)
+							{
+							StartPixel = EndPixel;
+							}
+							DrawLine(Buffer, (float)j, StartPixel, (float)j, EndPixel, 1.0f, 1.0f, 1.0f);			*/
+				DrawLine(Buffer, (float)j, EndPixel, (float)j, EndPixel + 3, 0.0f, 1.0f, 1.0f);
+				//DrawPixel(Buffer, (float)j, EndPixel, 0.0f, 1.0f, 1.0f);
+			}
 		}
 
 	}

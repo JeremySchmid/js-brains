@@ -1313,7 +1313,7 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 						{
 							if(Game.Update)
 							{
-								for (int UpdateIndex = 0; UpdateIndex < NUMTESTCYCLES; UpdateIndex++)
+								for (int UpdateIndex = 0; UpdateIndex <= NUMTESTCYCLES; UpdateIndex++)
 								{
 									if (UpdateCounter == NUMTESTCYCLES - 1)
 									{

@@ -1,6 +1,8 @@
 #ifndef NEURAL_NET_H
 	#include "neural_net.h"
 #endif
+
+#include "magic_numbers.h"
 #include "limits.h"
 
 /*
@@ -197,8 +199,8 @@ internal void NeuralNetUpdate (debug_state* DebugState, neural_net* Net, float* 
 				}
 			}
 
-			float Persistence = .98f;
-			TestFiring = (TempNeuron->Firing * Persistence) + (TestFiring * (1.0f - Persistence));
+			//float Persistence = .98f;
+			//TestFiring = (TempNeuron->Firing * Persistence) + (TestFiring * (1.0f - Persistence));
 
 			DebugAssert(isfinite(TestFiring));
 		}

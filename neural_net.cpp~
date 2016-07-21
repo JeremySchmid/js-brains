@@ -1,6 +1,8 @@
 #ifndef NEURAL_NET_H
 	#include "neural_net.h"
 #endif
+
+#include "magic_numbers.h"
 #include "limits.h"
 
 /*

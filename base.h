@@ -116,9 +116,13 @@ typedef struct debug_state
 	boolint DebugMode;
 	boolint DebugForce;
 
-	float DebugGraph[GRAPHSIZE];
-	int DebugNum;
 	int GraphSize;
+	
+	float DebugGraph1[GRAPHSIZE];
+	int DebugNum1;
+
+	float DebugGraph2[GRAPHSIZE];
+	int DebugNum2;
 
 	int CreatureIndex;
 	int CreatureToDraw;

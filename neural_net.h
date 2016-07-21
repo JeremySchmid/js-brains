@@ -1,7 +1,6 @@
 #ifndef NEURAL_NET_H
 
-#define NUMNEURONS 11
-#define NUMDENDRITES 6
+#include "magic_numbers.h"
 
 #if 1
 typedef struct dendrite
@@ -27,8 +26,6 @@ typedef struct neuron
 	dendrite Dendrites[NUMDENDRITES];
 
 } neuron;
-
-#define NUMTESTCYCLES 90
 
 typedef struct neural_net
 {
