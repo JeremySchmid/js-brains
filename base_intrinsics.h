@@ -1,33 +1,5 @@
 #if !defined(BASE_INTRINSICS_H)
 
-internal int SignOf (float Number)
-{
-	int Result = 0;
-
-	if (Number < 0)
-	{
-		Result = -1;
-	}
-	else if (Number > 0)
-	{
-		Result = 1;
-	}
-
-	return Result;
-}
-
-internal float AbsVal (float Number)
-{
-	float Result = Number;
-	if (Result < 0)
-	{
-		Result = -Result;
-	}
-	return Result;
-}
-
-//TODO: Convert all to efficient and remove math.h
-
 inline int32_t RoundFloatToInt32(float Decimal)
 {
 	//still gotta convert this stuff

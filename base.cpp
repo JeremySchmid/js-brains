@@ -106,33 +106,6 @@ internal void DrawPixel(game_offscreen_buffer* Buffer, float RealX, float RealY,
 
 }
 
-boolint IsFloatInBounds(float Value, float Min, float Max)
-{
-	boolint Result = true;
-	if (Value < Min)
-	{
-		Result = false;
-	}
-	if (Value > Max)
-	{
-		Result = false;
-	}
-	return Result;
-}
-
-void ForceFloatInBounds(float* Value, float Min, float Max)
-{
-	if (*Value < Min)
-	{
-		*Value = Min;
-	}
-	if (*Value > Max)
-	{
-		*Value = Max;
-	}
-	return;
-}
-
 void DrawLine(game_offscreen_buffer* Buffer, float XStart, float YStart, float XEnd, float YEnd, float Red, float Blue, float Green)
 {
 
@@ -226,7 +199,7 @@ float CalculateCreatureFitness(creature* Creature)
 
 	float XFitness = (Creature->GoalY - Creature->PositionY) / 540.0f;
 	float YFitness = (Creature->GoalX - Creature->PositionX) / 960.0f;
-	float DistFitness = -(float)sqrt(YFitness * YFitness + XFitness * XFitness);
+	float DistFitness = -(float)(YFitness * YFitness + XFitness * XFitness);
 	//float VelocityFitness = -(float)sqrt(Creature->VelocityX * Creature->VelocityX + Creature->VelocityY * Creature->VelocityY);
 
 	Result = DistFitness;// + VelocityFitness;
@@ -490,7 +463,7 @@ extern "C" GAME_UPDATE(GameUpdate)
 
 			int RandomDendriteSender = rand() % (State->Nets->NumNeurons);
 
-			int RandomIf = rand() % 2;
+			int RandomIf = rand() % 30;
 
 			for (int CreatureIndex = NumCreatures / 2; CreatureIndex < NumCreatures; CreatureIndex++)
 			{
@@ -500,15 +473,29 @@ extern "C" GAME_UPDATE(GameUpdate)
 
 				Dendrite->Strength *= RandomAmount;
 
-				if (Dendrite->Strength < 0.000001f)
+				if (RandomIf > 25)
 				{
-					if (RandomIf)
+					if (RandomSign > 0)
 					{
 						Dendrite->Strength *= -1.0f;
 					}
 					else
 					{
-						Dendrite->Sender = RandomDendriteSender;
+						Dendrite->Sender = -1;
+						while (Dendrite->Sender == -1)
+						{
+							int TestSender = rand() % Net->NumNeurons;
+
+							for (int i = 0; i < Neuron->NumCurrentDendrites; i++)
+							{		
+								if (TestSender == Neuron->Dendrites[i].Sender)
+								{
+									TestSender = -1;
+								}
+							}
+							Dendrite->Sender = TestSender;
+						}
+
 					}
 				}
 			}

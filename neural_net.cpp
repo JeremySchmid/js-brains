@@ -3,13 +3,9 @@
 #endif
 
 #include "magic_numbers.h"
+#include "base.h"
 #include "limits.h"
 
-/*
-internal boolint NeuralNetInitialize (neural_net* Net)
-
-internal void NeuralNetUpdate (neural_net* Net, float* SensorValues, float* MotorValues, int Reward)
-*/
 #if 1
 #define DebugAssert(Expression) if (!(Expression)) {DebugState->DebugForce = 1; *(int*)0 = 0;} //{NeuralNetInitialize(Net);}
 
@@ -99,52 +95,10 @@ internal boolint NeuralNetInitialize (neural_net* Net)
 				DendriteInitialize(Net, Neuron, Dendrite);
 
 				Neuron->NumCurrentDendrites++;
-				//make it impossible to make two dendrites pointing to the same neuron?
-
 			}
 		}
 	}
 	return true;
-}
-/*
-internal int32_t CheckMagnitude (int64_t TestFiring)
-{
-	if (TestFiring > 2147483647) {
-		return 2147483647;
-	}
-	else if (TestFiring < -2147483648) {
-		return -2147483648;
-	}
-	else {
-		return (int32_t) TestFiring;
-	}
-}
-*/
-
-internal int Sign (float Number)
-{
-	int Result = 0;
-
-	if (Number < 0)
-	{
-		Result = -1;
-	}
-	else if (Number > 0)
-	{
-		Result = 1;
-	}
-
-	return Result;
-}
-
-internal float AbsoluteValue (float Number)
-{
-	float Result = Number;
-	if (Result < 0)
-	{
-		Result = -Result;
-	}
-	return Result;
 }
 
 internal void NeuralNetUpdate (debug_state* DebugState, neural_net* Net, float* SensorValues, float* MotorValues)
@@ -175,10 +129,9 @@ internal void NeuralNetUpdate (debug_state* DebugState, neural_net* Net, float* 
 				//TestFiring += (float)(SignOf(Predamp) * sqrt(AbsVal(Predamp)));
 				TestFiring += NeuronOfDendrite->Firing * TempDendrite->Strength;
 
-				if (NeuronIndex >= Net->NumSensorNeurons)
-				{
-					DebugAssert(isfinite(TestFiring));
-				}
+				
+
+				DebugAssert(isfinite(TestFiring));
 
 				//change dendritestrengths according to their relative magnitudes of influencing their neuron?? how to implement dendrites being recently used becoming susceptible to reward?
 				//make dendrite-strength the likelihood that the NeuronOfDendrite will be read and used, or maybe make it a value shoved through a 1-expdecay function? -- not useful; adds non-useful randomness to the calculations
@@ -201,6 +154,8 @@ internal void NeuralNetUpdate (debug_state* DebugState, neural_net* Net, float* 
 
 			//float Persistence = .98f;
 			//TestFiring = (TempNeuron->Firing * Persistence) + (TestFiring * (1.0f - Persistence));
+
+			ForceFloatInBounds(&TestFiring, -1000000.0f, 1000000.0f);
 
 			DebugAssert(isfinite(TestFiring));
 		}

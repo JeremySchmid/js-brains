@@ -2,11 +2,11 @@
 
 
 #define NUMNEURONS 10
-#define NUMDENDRITES 5
+#define NUMDENDRITES 6
 
-#define NUMTESTCYCLES 180
+#define NUMTESTCYCLES 300
 
-#define NUMCREATURES 300
+#define NUMCREATURES 200
 
 #define MAGIC_NUMBERS_H
 #endif
