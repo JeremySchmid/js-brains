@@ -17,7 +17,10 @@ typedef struct thread_context
 	int Placeholder;
 } thread_context;
 
-
+int AsciiToIndex (int Character)
+{
+	return (Character - 'A');
+}
 
 //NOTE: Services that the platform layer provides to the game
 
@@ -84,6 +87,20 @@ typedef struct average_analog
 	int NumberSoFar;
 	
 } average_analog;
+
+typedef struct keyboard_input
+{
+
+	union {
+		game_button_state Keys[28];
+		struct {
+			game_button_state Alphabet[26];
+			game_button_state Escape;
+			game_button_state Space;
+		};
+	};
+
+} keyboard_input;
 
 typedef struct game_controller_input
 {
@@ -154,6 +171,8 @@ typedef struct game_input
 	int MouseX, MouseY, MouseZ;
 
 	game_controller_input Controllers[5];
+
+	keyboard_input KeyboardInput;
 	
 	float dtForFrame;
 	//Insert clock values here

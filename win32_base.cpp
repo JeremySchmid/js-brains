@@ -797,7 +797,7 @@ internal void Win32PlaybackInput(win32_state* State, game_input* NewInput)
 	}
 }
 
-internal void Win32ProcessPendingMessages(win32_state* State, game_controller_input* KeyboardController)
+internal void Win32ProcessPendingMessages(win32_state* State, game_controller_input* KeyboardController, keyboard_input* KeyboardInput)
 {
 	MSG Message;
 	while(PeekMessage(&Message, 0, 0, 0, PM_REMOVE))
@@ -819,6 +819,11 @@ internal void Win32ProcessPendingMessages(win32_state* State, game_controller_in
 					bool IsDown = ((Message.lParam & (1 << 31)) == 0);
 					if (WasDown != IsDown)
 					{
+						if ((VKCode >= 'A' && VKCode <= 'Z') ||
+								(VKCode >= 'a' && VKCode <= 'z'))
+						{
+							Win32ProcessKeyboardStateChange(&KeyboardInput->Alphabet[AsciiToIndex((int)VKCode)], IsDown);
+						}
 						switch (VKCode)
 						{
 							//TODO: consider, what, a table of function pointers to carry out rebinding keys, and switch the pointer values or something similar? for rebindable keys
@@ -902,7 +907,7 @@ internal void Win32ProcessPendingMessages(win32_state* State, game_controller_in
 										GlobalPause = !GlobalPause;
 									}
 								} break;
-							
+
 							case 'M':
 								{
 									if (IsDown)
@@ -992,17 +997,25 @@ internal void Win32GetExeFileName(win32_state* State)
 void GetInput(win32_state* State, HWND Window, game_input* OldInput, game_input* NewInput)
 {
 
-	game_controller_input* OldKeyboardInput = GetController(OldInput, 0);
-	game_controller_input* NewKeyboardInput = GetController(NewInput, 0);
-	*NewKeyboardInput = *OldKeyboardInput;
-	NewKeyboardInput->IsConnected = true;
-	for (int ButtonIndex = 0; ButtonIndex < ArrayCount(NewKeyboardInput->Buttons); ButtonIndex++)
+	game_controller_input* OldKeyboardController = GetController(OldInput, 0);
+	game_controller_input* NewKeyboardController = GetController(NewInput, 0);
+	*NewKeyboardController = *OldKeyboardController;
+	NewKeyboardController->IsConnected = true;
+	for (int ButtonIndex = 0; ButtonIndex < ArrayCount(NewKeyboardController->Buttons); ButtonIndex++)
 	{
-		NewKeyboardInput->Buttons[ButtonIndex].HalfTransitionCount = 0;
-	}							
+		NewKeyboardController->Buttons[ButtonIndex].HalfTransitionCount = 0;
+	}	
 
-	Win32ProcessPendingMessages(State, NewKeyboardInput);
 
+	keyboard_input* OldKeyboardInput = &OldInput->KeyboardInput;
+	keyboard_input* NewKeyboardInput = &NewInput->KeyboardInput;
+	*NewKeyboardInput = *OldKeyboardInput;
+	for (int KeyIndex = 0; KeyIndex < ArrayCount(NewKeyboardInput->Keys); KeyIndex++)
+	{
+		NewKeyboardInput->Keys[KeyIndex].HalfTransitionCount = 0;
+	}
+
+	Win32ProcessPendingMessages(State, NewKeyboardController, NewKeyboardInput);
 
 	POINT MouseP;
 	GetCursorPos(&MouseP);
@@ -1272,8 +1285,6 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 
 				uint64_t LastCycleCount = __rdtsc();
 
-				int UpdateCounter = 0;
-
 				while (GlobalRunning)
 				{
 					NewInput->dtForFrame = TargetSecondsPerFrame;
@@ -1309,33 +1320,15 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 					if (!GlobalPause)
 					{
 
-						if (GlobalFast)
+						if (Game.Update)
 						{
-							if(Game.Update)
-							{
-								for (int UpdateIndex = 0; UpdateIndex < NUMTESTCYCLES; UpdateIndex++)
-								{
-									if (UpdateCounter == NUMTESTCYCLES - 1)
-									{
-										Game.Render(&Thread, &GameMemory, &Buffer);
-									}
-									Game.Update(&Thread, &GameMemory, NewInput);
-									UpdateCounter = (UpdateCounter + 1) % NUMTESTCYCLES;
-								}
-							}
+							Game.Update(&Thread, &GameMemory, NewInput);
 						}
-						else
+						if (Game.Render)
 						{
-							if (Game.Render)
-							{
-								Game.Render(&Thread, &GameMemory, &Buffer);
-							}
-							if (Game.Update)
-							{
-								Game.Update(&Thread, &GameMemory, NewInput);
-								UpdateCounter = (UpdateCounter + 1) % NUMTESTCYCLES;
-							}
+							Game.Render(&Thread, &GameMemory, &Buffer);
 						}
+
 						LARGE_INTEGER PostUpdate = Win32GetWallClock();
 						UpdateAndInputTime = Win32GetSecondsElapsed(PreInput, PostUpdate);
 
@@ -1452,52 +1445,52 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 						float SecondsElapsedForFrame = WorkSecondsElapsed;
 
 						DWORD MSLeft = (DWORD)(1000.0f * (TargetSecondsPerFrame - SecondsElapsedForFrame));
-/*						if (SecondsElapsedForFrame > TargetSecondsPerFrame)
-						{
-							LARGE_INTEGER Prerender = Win32GetWallClock();
-							if (Game.Render)
-							{
-								Game.Render(&Thread, &GameMemory, &Buffer);
-							}
-							LARGE_INTEGER Postrender = Win32GetWallClock();
-							RenderTime = Win32GetSecondsElapsed(Prerender, Postrender);
+						/*						if (SecondsElapsedForFrame > TargetSecondsPerFrame)
+												{
+												LARGE_INTEGER Prerender = Win32GetWallClock();
+												if (Game.Render)
+												{
+												Game.Render(&Thread, &GameMemory, &Buffer);
+												}
+												LARGE_INTEGER Postrender = Win32GetWallClock();
+												RenderTime = Win32GetSecondsElapsed(Prerender, Postrender);
 
-							//TODO: MISSED FRAME RATE
-							//logging
+						//TODO: MISSED FRAME RATE
+						//logging
 						}
 						else
 						{
-							if (GlobalFast)
-							{
-								while ((TargetSecondsPerFrame - WorkSecondsElapsed - RenderTime) / UpdateAndInputTime > 2 && RenderTime != 0)
-								{
-									PreInput = Win32GetWallClock();
-									ResetInput(OldInput, NewInput);
-									GetInput(&State, Window, OldInput, NewInput);
+						if (GlobalFast)
+						{
+						while ((TargetSecondsPerFrame - WorkSecondsElapsed - RenderTime) / UpdateAndInputTime > 2 && RenderTime != 0)
+						{
+						PreInput = Win32GetWallClock();
+						ResetInput(OldInput, NewInput);
+						GetInput(&State, Window, OldInput, NewInput);
 
-									if(Game.Update)
-									{
-										Game.Update(&Thread, &GameMemory, NewInput);
-									}
-									PostUpdate = Win32GetWallClock();
-									UpdateAndInputTime = Win32GetSecondsElapsed(PreInput, PostUpdate);
+						if(Game.Update)
+						{
+						Game.Update(&Thread, &GameMemory, NewInput);
+						}
+						PostUpdate = Win32GetWallClock();
+						UpdateAndInputTime = Win32GetSecondsElapsed(PreInput, PostUpdate);
 
-									WorkSecondsElapsed = Win32GetSecondsElapsed(LastCounter, PostUpdate);
-									MSLeft = (DWORD)(1000.0f * (TargetSecondsPerFrame - WorkSecondsElapsed));
+						WorkSecondsElapsed = Win32GetSecondsElapsed(LastCounter, PostUpdate);
+						MSLeft = (DWORD)(1000.0f * (TargetSecondsPerFrame - WorkSecondsElapsed));
 
-								}
-							}
-							LARGE_INTEGER Prerender = Win32GetWallClock();
-							if (Game.Render)
-							{
-								Game.Render(&Thread, &GameMemory, &Buffer);
-							}
-							LARGE_INTEGER Postrender = Win32GetWallClock();
-							RenderTime = Win32GetSecondsElapsed(Prerender, Postrender);
+						}
+						}
+						LARGE_INTEGER Prerender = Win32GetWallClock();
+						if (Game.Render)
+						{
+						Game.Render(&Thread, &GameMemory, &Buffer);
+						}
+						LARGE_INTEGER Postrender = Win32GetWallClock();
+						RenderTime = Win32GetSecondsElapsed(Prerender, Postrender);
 
 
 						}
-*/
+						*/
 						if (SleepIsGranular && SecondsElapsedForFrame < TargetSecondsPerFrame)
 						{
 							if (MSLeft > 0)

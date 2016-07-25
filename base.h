@@ -184,12 +184,15 @@ typedef struct debug_state
 	int NeuronToDraw;
 	int DendriteToDraw;
 
+	boolint Fast;
+
 } debug_state;
 
-typedef struct game_state
+typedef struct state
 {
 	debug_state DebugState;
 
+	int NumCreatures;
 	creature* Creatures;
 	neural_net* Nets;
 
@@ -198,7 +201,7 @@ typedef struct game_state
 
 	tile_map_position PlayerP;	
 
-} game_state;
+} state;
 
 #define BASE_H
 #endif
