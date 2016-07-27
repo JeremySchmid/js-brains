@@ -199,10 +199,10 @@ float CalculateCreatureFitness(creature* Creature)
 
 	float YRelPos = Creature->GoalY - Creature->PositionY;
 	float XRelPos = Creature->GoalX - Creature->PositionX;
-	float NegDistanceSquared = -(float)(YRelPos * YRelPos + XRelPos * XRelPos);
+	float NegDistance = -(float)(YRelPos * YRelPos + XRelPos * XRelPos);
 	//float VelocityFitness = -(float)sqrt(Creature->VelocityX * Creature->VelocityX + Creature->VelocityY * Creature->VelocityY);
 
-	Result = NegDistanceSquared;// + VelocityFitness;
+	Result = NegDistance;// + VelocityFitness;
 	Assert(isfinite(Result));
 	return Result;
 
@@ -297,7 +297,7 @@ void DoOneCycle(state* State)
 		//Net->Reward = LogisticFunc(FitnessChange);
 		Assert(isfinite(Net->Reward));
 
-		Net->PastRewards[Creature->Age] = Net->Reward;
+		Net->PastFitness[Creature->Age] = Net->CurrentFitness;
 
 		Creature->Age++;
 
@@ -305,37 +305,37 @@ void DoOneCycle(state* State)
 
 	if (State->Creatures->Age > NUMTESTCYCLES - 1)
 	{
-		float AverageRewards[NUMCREATURES];
+		float AverageFitness[NUMCREATURES];
 		for (int CreatureIndex = 0; CreatureIndex < State->NumCreatures; CreatureIndex++)
 		{
 			neural_net* Net = State->Nets + CreatureIndex;
-			float AverageReward = 0;
-			for (int RewardNum = 0; RewardNum < NUMTESTCYCLES; RewardNum++)
+			float Average = 0;
+			for (int FitnessNum = 0; FitnessNum < NUMTESTCYCLES; FitnessNum++)
 			{
-				AverageReward += Net->PastRewards[RewardNum]; 
+				Average += Net->PastFitness[FitnessNum]; 
 			}
-			AverageRewards[CreatureIndex] = AverageReward / (float)NUMTESTCYCLES;
+			AverageFitness[CreatureIndex] = Average / (float)NUMTESTCYCLES;
 		}
 
-		float FirstHalfRewards = 0;
-		float SecondHalfRewards = 0;
+		float FirstHalfFitness = 0;
+		float SecondHalfFitness = 0;
 
 		for (int CreatureIndex = 0; CreatureIndex < State->NumCreatures / 2; CreatureIndex++)
 		{
-			FirstHalfRewards += AverageRewards[CreatureIndex];
+			FirstHalfFitness += AverageFitness[CreatureIndex];
 		}
-		FirstHalfRewards /= State->NumCreatures / 2;
+		FirstHalfFitness /= State->NumCreatures / 2;
 
-		DebugState->DebugGraph1[DebugState->DebugNum1 % DebugState->GraphSize] = FirstHalfRewards;
+		DebugState->DebugGraph1[DebugState->DebugNum1 % DebugState->GraphSize] = FirstHalfFitness;
 		DebugState->DebugNum1++;
 
 		for (int CreatureIndex = State->NumCreatures / 2; CreatureIndex < State->NumCreatures; CreatureIndex++)
 		{
-			SecondHalfRewards += AverageRewards[CreatureIndex];
+			SecondHalfFitness += AverageFitness[CreatureIndex];
 		}
-		SecondHalfRewards /= State->NumCreatures / 2;
+		SecondHalfFitness /= State->NumCreatures / 2;
 
-		DebugState->DebugGraph2[DebugState->DebugNum2 % DebugState->GraphSize] = SecondHalfRewards;
+		DebugState->DebugGraph2[DebugState->DebugNum2 % DebugState->GraphSize] = SecondHalfFitness;
 		DebugState->DebugNum2++;
 
 		for (int CreatureIndex = 0; CreatureIndex < State->NumCreatures / 2; CreatureIndex++)
@@ -345,7 +345,7 @@ void DoOneCycle(state* State)
 			//CreatureInitialize(State->Creatures + CreatureIndex + State->NumCreatures / 2);
 			neural_net* FirstHalfNet = State->Nets + CreatureIndex;
 			neural_net* SecondHalfNet = State->Nets + CreatureIndex + State->NumCreatures / 2;
-			if (FirstHalfRewards >= SecondHalfRewards)
+			if (FirstHalfFitness >= SecondHalfFitness)
 			{
 				NeuralNetCleanFirings(FirstHalfNet);
 				NeuralNetCopy(FirstHalfNet, SecondHalfNet);
@@ -363,8 +363,6 @@ void DoOneCycle(state* State)
 		int RandomSign = (rand() % 2 == 0 ? 1 : -1);
 		float RandomAmount = (rand() % 2 == 0 ? 1.1f : 0.90f);
 
-		int RandomDendriteSender = rand() % (State->Nets->NumNeurons);
-
 		int RandomIf = rand() % 30;
 
 		for (int CreatureIndex = State->NumCreatures / 2; CreatureIndex < State->NumCreatures; CreatureIndex++)
@@ -373,36 +371,38 @@ void DoOneCycle(state* State)
 			neuron* Neuron = &Net->Neurons[RandomNeuron];
 			dendrite* Dendrite = &Neuron->Dendrites[RandomDendrite];
 
-			Dendrite->Strength *= RandomAmount;
-
 			if (RandomIf > 25)
 			{
-				if (RandomSign > 0)
+				Dendrite->Strength *= -1.0f;
+			}
+			else if (RandomIf > 23)
+			{
+				Dendrite->Strength *= (RandomSign > 0 ? 0.5f : 2.0f);
+			}
+			else if (RandomIf > 21)
+			{
+				Dendrite->Sender = -1;
+				while (Dendrite->Sender == -1)
 				{
-					Dendrite->Strength *= -1.0f;
-				}
-				else
-				{
-					Dendrite->Sender = -1;
-					while (Dendrite->Sender == -1)
-					{
-						int TestSender = rand() % Net->NumNeurons;
+					int TestSender = rand() % Net->NumNeurons;
 
-						for (int i = 0; i < Neuron->NumCurrentDendrites; i++)
-						{		
-							if (TestSender == Neuron->Dendrites[i].Sender)
-							{
-								TestSender = -1;
-							}
+					for (int i = 0; i < Neuron->NumCurrentDendrites; i++)
+					{		
+						if (TestSender == Neuron->Dendrites[i].Sender)
+						{
+							TestSender = -1;
 						}
-						Dendrite->Sender = TestSender;
 					}
-
+					Dendrite->Sender = TestSender;
 				}
+
+			}
+			else
+			{
+				Dendrite->Strength *= RandomAmount;
 			}
 		}
-
-	}	
+	}
 }
 
 extern "C" GAME_UPDATE(GameUpdate)
@@ -620,12 +620,9 @@ extern "C" GAME_RENDER(GameRender)
 	{
 
 		float MaxValue = 0;
-		float Average1[960] = {0};
-		int AverageProgress1 = 0;
-		float Average2[960] = {0};
-		int AverageProgress2 = 0;
-		int DebugProgress1 = 0;
-		int DebugProgress2 = 0;
+		float Average[960] = {0};
+		int AverageProgress = 0;
+		int DebugProgress = 0;
 
 		int SumCount = 1 + (DebugState->DebugNum1 / 960);
 		if (SumCount > DebugState->GraphSize / 960)
@@ -639,63 +636,40 @@ extern "C" GAME_RENDER(GameRender)
 			End = DebugState->GraphSize / SumCount;
 		}
 
-		while (AverageProgress1 < End)
+		while (AverageProgress < End)
 		{
 			float Sum = 0;
 			for (int Count = 0; Count < SumCount; Count++)
 			{
-				Sum += DebugState->DebugGraph1[DebugProgress1 % DebugState->GraphSize];
-				DebugProgress1++;
+				Sum += DebugState->DebugGraph1[DebugProgress % DebugState->GraphSize];
+				DebugProgress++;
 			}
 
-			Average1[AverageProgress1] = Sum / (float)SumCount;
-			AverageProgress1++;
-
-			Sum = 0;
-			for (int Count = 0; Count < SumCount; Count++)
-			{
-				Sum += DebugState->DebugGraph2[DebugProgress2 % DebugState->GraphSize];
-				DebugProgress2++;
-			}
-
-			Average2[AverageProgress2] = Sum / (float)SumCount;
-			AverageProgress2++;
+			Average[AverageProgress] = Sum / (float)SumCount;
+			AverageProgress++;
 		}
 
-		for (int j = 0; j < AverageProgress1; j++)
+		for (int j = 0; j < AverageProgress; j++)
 		{
-			if (AbsVal(Average1[j]) * 1.05f > MaxValue)
+			if (AbsVal(Average[j]) * 1.05f > MaxValue)
 			{
-				MaxValue = 1.05f * AbsVal(Average1[j]);
-			}
-			if (AbsVal(Average2[j]) * 1.05f > MaxValue)
-			{
-				MaxValue = 1.05f * AbsVal(Average2[j]);
+				MaxValue = 1.05f * AbsVal(Average[j]);
 			}
 		}
 
-		for (int j = 0; j < AverageProgress1; j++)
+		for (int j = 0; j < AverageProgress; j++)
 		{
 			DrawPixel(Buffer, (float)j, (float)Buffer->Height / 2.0f, 1.0f, 1.0f, 1.0f);
 
-			if (Average1[j] >= Average2[j])
-			{
-				float EndPixel = (float)Buffer->Height / 2.0f * (1.0f - Average1[j] / MaxValue);
-				DrawLine(Buffer, (float)j, EndPixel, (float)j, EndPixel + 3, 1.0f, 0.0f, 0.0f);
-				//DrawPixel(Buffer, (float)j, EndPixel, 1.0f, 0.0f, 0.0f);
-			}
-			else
-			{
-				float EndPixel = (float)Buffer->Height / 2.0f * (1.0f - Average2[j] / MaxValue);
-				/*			float StartPixel = (float)Buffer->Height / 2.0f * (1.0f - (Average[j - 1] / MaxValue)) + 1.0f * SignOf(Average[j - 1] - Average[j]);
-							if (j == 0)
-							{
-							StartPixel = EndPixel;
-							}
-							DrawLine(Buffer, (float)j, StartPixel, (float)j, EndPixel, 1.0f, 1.0f, 1.0f);			*/
-				DrawLine(Buffer, (float)j, EndPixel, (float)j, EndPixel + 3, 0.0f, 1.0f, 1.0f);
-				//DrawPixel(Buffer, (float)j, EndPixel, 0.0f, 1.0f, 1.0f);
-			}
+			float EndPixel = (float)Buffer->Height / 2.0f * (1.0f - Average[j] / MaxValue);
+			/*			float StartPixel = (float)Buffer->Height / 2.0f * (1.0f - (Average[j - 1] / MaxValue)) + 1.0f * SignOf(Average[j - 1] - Average[j]);
+						if (j == 0)
+						{
+						StartPixel = EndPixel;
+						}
+						DrawLine(Buffer, (float)j, StartPixel, (float)j, EndPixel, 1.0f, 1.0f, 1.0f);			*/
+			DrawLine(Buffer, (float)j, EndPixel, (float)j, EndPixel + 3, 1.0f, 1.0f, 1.0f);
+			//DrawPixel(Buffer, (float)j, EndPixel, 1.0f, 1.0f, 1.0f);
 		}
 
 	}

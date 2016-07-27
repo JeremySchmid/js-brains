@@ -27,8 +27,6 @@ typedef struct neuron
 
 } neuron;
 
-#define NUMTESTCYCLES 90
-
 typedef struct neural_net
 {
 	int NumNeurons;

@@ -38,7 +38,7 @@ typedef struct neural_net
 	float LastFitness;
 	float Reward;
 
-	float PastRewards[NUMTESTCYCLES];
+	float PastFitness[NUMTESTCYCLES];
 	
 	neuron Neurons[NUMNEURONS];
 	
