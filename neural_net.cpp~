@@ -13,9 +13,11 @@ internal void NeuralNetCleanFirings (neural_net* Net)
 {
 	for (int NeuronIndex = 0; NeuronIndex < Net->NumNeurons; NeuronIndex++)
 	{
-		neuron* Neuron = &Net->Neurons[NeuronIndex];
+		neuron* Neuron = &Net->Neurons[NeuronIndex * 2 + Net->Toggle];
+		neuron* PairedNeuron = &Net->Neurons[NeuronIndex * 2 + !Net->Toggle];
 
 		Neuron->Firing = 0;
+		PairedNeuron->Firing = 0;
 	}
 }
 
@@ -24,7 +26,7 @@ internal void NeuralNetCopy (neural_net* OriginalNet, neural_net* TargetNet)
 
 	*TargetNet = *OriginalNet;
 
-	for (int NeuronIndex = 0; NeuronIndex < OriginalNet->NumNeurons; NeuronIndex++)
+	for (int NeuronIndex = 0; NeuronIndex < OriginalNet->NumNeurons * 2; NeuronIndex++)
 	{
 		neuron* Neuron = &OriginalNet->Neurons[NeuronIndex];
 		neuron* TargetNeuron = &TargetNet->Neurons[NeuronIndex];
@@ -60,12 +62,13 @@ internal void DendriteInitialize (neural_net* Net, neuron* Neuron, dendrite* Den
 	}
 
 	float Base = 1.0f / Net->NumDendrites;
-	float Factor = (float)((double)rand() / (double)RAND_MAX / 2.0f);
-	int FactorSign = (rand() % 2 == 1 ? 1 : -1);
-	int Sign = (rand() % 2 == 1 ? 1 : -1);
+	float FactorDet = (float)((double)rand() / (double)RAND_MAX);
+	float Factor = (rand() % 2 == 0 ? 1.0f + FactorDet : 1.0f / (1.0f + FactorDet));
+	int Sign = (rand() % 2 == 0 ? 1 : -1);
 
-	Dendrite->Strength = Sign * Base * (1.0f + Factor * FactorSign);
-
+	Dendrite->Strength = Sign * Base * Factor;
+	
+	Dendrite->RewardSusceptibility = 0;
 	//Dendrite->CurrentWobble = 0.0f;
 	//Dendrite->WobbleLimit = Dendrite->Strength * 0.5f;
 	//Dendrite->WobbleStep = 0.005f;
@@ -79,39 +82,42 @@ internal boolint NeuralNetInitialize (neural_net* Net)
 
 	for (int NeuronIndex = 0; NeuronIndex < Net->NumNeurons; NeuronIndex++) {
 		
-		neuron* Neuron = &Net->Neurons[NeuronIndex];
+		neuron* Neuron = &Net->Neurons[NeuronIndex * 2 + Net->Toggle];
+		neuron* PairedNeuron = &Net->Neurons[NeuronIndex * 2 + !Net->Toggle];
 
 		Neuron->Firing = 0; //(float)((double)rand() / (double)RAND_MAX);
 
 		Neuron->NumCurrentDendrites = 0;
 
+		*PairedNeuron = *Neuron;
 		if (NeuronIndex >= Net->NumSensorNeurons)
 		{
 			//Dendrite Generation
 			for (int DendriteIndex = 0; DendriteIndex < Net->NumDendrites; DendriteIndex++)
 			{
 				dendrite* Dendrite = &Neuron->Dendrites[DendriteIndex];
+				dendrite* PairedDendrite = &PairedNeuron->Dendrites[DendriteIndex];
 
 				DendriteInitialize(Net, Neuron, Dendrite);
 
+				*PairedDendrite = *Dendrite;
 				Neuron->NumCurrentDendrites++;
+				PairedNeuron->NumCurrentDendrites++;
 			}
 		}
 	}
+	Net->Toggle = 0;
 	return true;
 }
 
 internal void NeuralNetUpdate (debug_state* DebugState, neural_net* Net, float* SensorValues, float* MotorValues)
 {
-	neural_net Temp = *Net;
-
-	NeuralNetCopy(Net, &Temp);
 
 	for (int NeuronIndex = 0; NeuronIndex < Net->NumNeurons; NeuronIndex++)
 	{
 
-		neuron* TempNeuron = &Temp.Neurons[NeuronIndex];
-		neuron* NewNeuron = &Net->Neurons[NeuronIndex];
+		neuron* NewNeuron = &Net->Neurons[NeuronIndex * 2 + Net->Toggle];
+		neuron* OldNeuron = &Net->Neurons[NeuronIndex * 2 + !Net->Toggle];
 
 		float TestFiring = 0;
 
@@ -119,15 +125,23 @@ internal void NeuralNetUpdate (debug_state* DebugState, neural_net* Net, float* 
 		{
 			for (int DendriteIndex = 0; DendriteIndex < Net->NumDendrites; DendriteIndex++)
 			{
-				int SenderNumber = TempNeuron->Dendrites[DendriteIndex].Sender;
+				int SenderNumber = OldNeuron->Dendrites[DendriteIndex].Sender;
 
-				dendrite* TempDendrite = &TempNeuron->Dendrites[DendriteIndex];
+				dendrite* OldDendrite = &OldNeuron->Dendrites[DendriteIndex];
 				dendrite* NewDendrite = &NewNeuron->Dendrites[DendriteIndex];
 
-				neuron* NeuronOfDendrite = &Temp.Neurons[SenderNumber];
-				//float Predamp = NeuronOfDendrite->Firing * (OldDendrite->Strength + OldDendrite->CurrentWobble);
-				//TestFiring += (float)(SignOf(Predamp) * sqrt(AbsVal(Predamp)));
-				TestFiring += NeuronOfDendrite->Firing * TempDendrite->Strength;
+				neuron* NeuronOfDendrite = &Net->Neurons[SenderNumber * 2 + !Net->Toggle];
+				float DendriteFire = NeuronOfDendrite->Firing * OldDendrite->Strength;
+				//NewDendrite->RewardSusceptibility = .25f * OldDendrite->RewardSusceptibility + 0.7f * AbsVal(DendriteFire);
+				// * OldDendrite->RewardSusceptibility
+				NewDendrite->Strength = .999f * OldDendrite->Strength + 0.05f * OldDendrite->Strength * Net->Reward * (Net->Reward > 0 ? 2.0f : 1.0f); 
+				if (NewDendrite->Strength < 0.0001f)
+				{
+					DendriteInitialize(Net, NewNeuron, NewDendrite);
+					NewDendrite->Strength *= 2;
+					*OldDendrite = *NewDendrite;
+				}
+				TestFiring += DendriteFire;
 
 				
 
@@ -146,16 +160,17 @@ internal void NeuralNetUpdate (debug_state* DebugState, neural_net* Net, float* 
 						&& DebugState->CreatureIndex == DebugState->CreatureToDraw)
 				{
 					//DebugState->DebugGraph[DebugState->DebugNum % DebugState->GraphSize] = Net->Reward;
-					//DebugState->DebugGraph[DebugState->DebugNum % DebugState->GraphSize] = NewDendrite->Strength; 
+					DebugState->DebugGraph[DebugState->DebugNum % DebugState->GraphSize] = NewDendrite->Strength;
+					//DebugState->DebugGraph[DebugState->DebugNum % DebugState->GraphSize] = NewDendrite->RewardSusceptibility;
 					//DebugState->DebugGraph[DebugState->DebugNum % DebugState->GraphSize] = TempNeuron->Firing;
-					//DebugState->DebugNum++;
+					DebugState->DebugNum++;
 				}
 			}
 
-			//float Persistence = .98f;
-			//TestFiring = (TempNeuron->Firing * Persistence) + (TestFiring * (1.0f - Persistence));
+			float Persistence = .98f;
+			TestFiring = (OldNeuron->Firing * Persistence) + (TestFiring * (1.0f - Persistence));
 
-			ForceFloatInBounds(&TestFiring, -1000000f, 1000000f);
+			ForceFloatInBounds(&TestFiring, -1000000.0f, 1000000.0f);
 
 			DebugAssert(isfinite(TestFiring));
 		}
@@ -175,6 +190,7 @@ internal void NeuralNetUpdate (debug_state* DebugState, neural_net* Net, float* 
 		}
 		
 	}
+	Net->Toggle = !Net->Toggle;
 	return;
 }
 

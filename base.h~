@@ -184,11 +184,14 @@ typedef struct debug_state
 	int NeuronToDraw;
 	int DendriteToDraw;
 
+	boolint Fast;
+
 } debug_state;
 
 typedef struct state
 {
 	debug_state DebugState;
+	int SlowTicker;
 
 	int NumCreatures;
 	creature* Creatures;

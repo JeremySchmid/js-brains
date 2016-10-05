@@ -6,7 +6,10 @@
 typedef struct dendrite
 {
 	int Sender;
+
 	float Strength;
+
+	
 
 	//float CurrentWobble;
 
@@ -38,10 +41,9 @@ typedef struct neural_net
 	float LastFitness;
 	float Reward;
 
-	float PastRewards[NUMTESTCYCLES];
-	
-	neuron Neurons[NUMNEURONS];
-	
+	neuron Neurons[NUMNEURONS * 2];
+
+	boolint Toggle;	
 } neural_net;
 
 #endif

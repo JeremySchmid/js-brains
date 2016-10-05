@@ -199,10 +199,10 @@ float CalculateCreatureFitness(creature* Creature)
 
 	float YRelPos = Creature->GoalY - Creature->PositionY;
 	float XRelPos = Creature->GoalX - Creature->PositionX;
-	float NegDistance = -(float)(YRelPos * YRelPos + XRelPos * XRelPos);
+	float NegDistanceSquared = -(float)sqrt(YRelPos * YRelPos + XRelPos * XRelPos);
 	//float VelocityFitness = -(float)sqrt(Creature->VelocityX * Creature->VelocityX + Creature->VelocityY * Creature->VelocityY);
 
-	Result = NegDistance;// + VelocityFitness;
+	Result = NegDistanceSquared / 500.0f;// + VelocityFitness;
 	Assert(isfinite(Result));
 	return Result;
 
@@ -268,10 +268,10 @@ void DoOneCycle(state* State)
 		float* SensorValues = (float*)PushArray(&State->WorldArena, float, Net->NumSensorNeurons);
 		float* MotorValues = (float*)PushArray(&State->WorldArena, float, Net->NumMotorNeurons);
 
-		SensorValues[0] = Creature->PositionX / 960.0f;
-		SensorValues[1] = Creature->PositionY / 540.0f;
-		SensorValues[2] = Creature->GoalX / 960.0f;
-		SensorValues[3] = Creature->GoalY / 540.0f;
+		SensorValues[0] = Creature->PositionX / 100.0f;
+		SensorValues[1] = Creature->PositionY / 100.0f;
+		SensorValues[2] = (float)Creature->GoalX / 100.0f;
+		SensorValues[3] = (float)Creature->GoalY / 100.0f;
 		SensorValues[4] = Creature->VelocityX;
 		SensorValues[5] = Creature->VelocityY;
 
@@ -297,111 +297,8 @@ void DoOneCycle(state* State)
 		//Net->Reward = LogisticFunc(FitnessChange);
 		Assert(isfinite(Net->Reward));
 
-		Net->PastFitness[Creature->Age] = Net->CurrentFitness;
-
 		Creature->Age++;
 
-	}
-
-	if (State->Creatures->Age > NUMTESTCYCLES - 1)
-	{
-		float AverageFitness[NUMCREATURES];
-		for (int CreatureIndex = 0; CreatureIndex < State->NumCreatures; CreatureIndex++)
-		{
-			neural_net* Net = State->Nets + CreatureIndex;
-			float Average = 0;
-			for (int FitnessNum = 0; FitnessNum < NUMTESTCYCLES; FitnessNum++)
-			{
-				Average += Net->PastFitness[FitnessNum]; 
-			}
-			AverageFitness[CreatureIndex] = Average / (float)NUMTESTCYCLES;
-		}
-
-		float FirstHalfFitness = 0;
-		float SecondHalfFitness = 0;
-
-		for (int CreatureIndex = 0; CreatureIndex < State->NumCreatures / 2; CreatureIndex++)
-		{
-			FirstHalfFitness += AverageFitness[CreatureIndex];
-		}
-		FirstHalfFitness /= State->NumCreatures / 2;
-
-		DebugState->DebugGraph1[DebugState->DebugNum1 % DebugState->GraphSize] = FirstHalfFitness;
-		DebugState->DebugNum1++;
-
-		for (int CreatureIndex = State->NumCreatures / 2; CreatureIndex < State->NumCreatures; CreatureIndex++)
-		{
-			SecondHalfFitness += AverageFitness[CreatureIndex];
-		}
-		SecondHalfFitness /= State->NumCreatures / 2;
-
-		DebugState->DebugGraph2[DebugState->DebugNum2 % DebugState->GraphSize] = SecondHalfFitness;
-		DebugState->DebugNum2++;
-
-		for (int CreatureIndex = 0; CreatureIndex < State->NumCreatures / 2; CreatureIndex++)
-		{
-			CreatureInitialize(State->Creatures + CreatureIndex);
-			*(State->Creatures + CreatureIndex + State->NumCreatures / 2) = *(State->Creatures + CreatureIndex);
-			//CreatureInitialize(State->Creatures + CreatureIndex + State->NumCreatures / 2);
-			neural_net* FirstHalfNet = State->Nets + CreatureIndex;
-			neural_net* SecondHalfNet = State->Nets + CreatureIndex + State->NumCreatures / 2;
-			if (FirstHalfFitness >= SecondHalfFitness)
-			{
-				NeuralNetCleanFirings(FirstHalfNet);
-				NeuralNetCopy(FirstHalfNet, SecondHalfNet);
-			}
-			else
-			{
-				NeuralNetCleanFirings(SecondHalfNet);
-				NeuralNetCopy(SecondHalfNet, FirstHalfNet);
-			}
-		}
-
-		int RandomNeuron = rand() % (State->Nets->NumNeurons - State->Nets->NumSensorNeurons) + State->Nets->NumSensorNeurons;
-		int RandomDendrite = rand() % State->Nets->NumDendrites;
-
-		int RandomSign = (rand() % 2 == 0 ? 1 : -1);
-		float RandomAmount = (rand() % 2 == 0 ? 1.1f : 0.90f);
-
-		int RandomIf = rand() % 30;
-
-		for (int CreatureIndex = State->NumCreatures / 2; CreatureIndex < State->NumCreatures; CreatureIndex++)
-		{
-			neural_net* Net = State->Nets + CreatureIndex;
-			neuron* Neuron = &Net->Neurons[RandomNeuron];
-			dendrite* Dendrite = &Neuron->Dendrites[RandomDendrite];
-
-			if (RandomIf > 25)
-			{
-				Dendrite->Strength *= -1.0f;
-			}
-			else if (RandomIf > 23)
-			{
-				Dendrite->Strength *= (RandomSign > 0 ? 0.5f : 2.0f);
-			}
-			else if (RandomIf > 21)
-			{
-				Dendrite->Sender = -1;
-				while (Dendrite->Sender == -1)
-				{
-					int TestSender = rand() % Net->NumNeurons;
-
-					for (int i = 0; i < Neuron->NumCurrentDendrites; i++)
-					{		
-						if (TestSender == Neuron->Dendrites[i].Sender)
-						{
-							TestSender = -1;
-						}
-					}
-					Dendrite->Sender = TestSender;
-				}
-
-			}
-			else
-			{
-				Dendrite->Strength *= RandomAmount;
-			}
-		}
 	}
 }
 
@@ -412,20 +309,44 @@ extern "C" GAME_UPDATE(GameUpdate)
 
 	state* State = (state*) Memory->PermanentStorage;
 
+	for (int ControllerIndex = 0; ControllerIndex < ArrayCount(Input->Controllers); ControllerIndex++)
+	{
+		game_controller_input* Controller = GetController(Input, ControllerIndex);
+	
+		if (ButtonToggled(&Controller->Start))	
+		{
+			State->DebugState.DebugMode = !State->DebugState.DebugMode;
+		}	
+		if(Controller->Back.EndedDown)
+		{
+			Memory->IsInitialized = false;
+		}
+		if (Controller->IsAnalog)
+		{
+		}
+	}
+
+	keyboard_input* Keyboard = &Input->KeyboardInput;
+	if (ButtonToggled(&Keyboard->Keys[AsciiToIndex('M')]))	
+	{
+		State->DebugState.Fast = !State->DebugState.Fast;
+	}	
+
 	if (!Memory->IsInitialized)
 	{
 		srand(4);
 
+		State->SlowTicker = 0;
+
 		debug_state* DebugState = &State->DebugState;
 		//DebugState->DebugFile = fopen("errlog.txt", "w");
-		DebugState->DebugNum1 = 0;
-		DebugState->DebugNum2 = 0;
+		DebugState->DebugNum = 0;
 		DebugState->GraphSize = GRAPHSIZE;
 		DebugState->DebugMode = 1;
-		DebugState->CreatureToDraw = 6;
+		DebugState->CreatureToDraw = 191;
 		DebugState->NeuronToDraw = 7;
-		DebugState->DendriteToDraw = 1;
-		DebugState->Fast = 1;
+		DebugState->DendriteToDraw = 2;
+		DebugState->Fast = 0;
 
 		InitializeArena(&State->WorldArena, 
 								Memory->PermanentStorageSize - sizeof(state), 
@@ -441,19 +362,15 @@ extern "C" GAME_UPDATE(GameUpdate)
 		
 		State->Nets = PushArray(&State->WorldArena, neural_net, State->NumCreatures);
 		
-
-		neural_net* InitialNet = State->Nets;
-		InitialNet->NumNeurons = NUMNEURONS;
-		InitialNet->NumDendrites = NUMDENDRITES;
-		InitialNet->NumSensorNeurons = 6;
-		InitialNet->NumMotorNeurons = 2;
-		NeuralNetInitialize(InitialNet);
-		InitialNet->CurrentFitness = CalculateCreatureFitness(State->Creatures);
-
-		for (int NetIndex = 1; NetIndex < State->NumCreatures; NetIndex++)
+		for (int NetIndex = 0; NetIndex < State->NumCreatures; NetIndex++)
 		{
 			neural_net* Net = State->Nets + NetIndex;
-			NeuralNetCopy(InitialNet, Net);
+			Net->NumNeurons = NUMNEURONS;
+			Net->NumDendrites = NUMDENDRITES;
+			Net->NumSensorNeurons = 6;
+			Net->NumMotorNeurons = 2;
+			NeuralNetInitialize(Net);
+			Net->CurrentFitness = CalculateCreatureFitness(State->Creatures);
 		}
 
 		State->World = PushStruct(&State->WorldArena, world);
@@ -482,43 +399,17 @@ extern "C" GAME_UPDATE(GameUpdate)
 		Memory->IsInitialized = true;
 	}
 	
-	for (int ControllerIndex = 0; ControllerIndex < ArrayCount(Input->Controllers); ControllerIndex++)
-	{
-		game_controller_input* Controller = GetController(Input, ControllerIndex);
-	
-		if (ButtonToggled(&Controller->Start))	
-		{
-			State->DebugState.DebugMode = !State->DebugState.DebugMode;
-		}	
-		if(Controller->Back.EndedDown)
-		{
-			Memory->IsInitialized = false;
-		}
-		if (Controller->IsAnalog)
-		{
-		}
-	}
-
-	keyboard_input* Keyboard = &Input->KeyboardInput;
-	if (ButtonToggled(&Keyboard->Keys[AsciiToIndex('M')]))	
-	{
-		State->DebugState.Fast = !State->DebugState.Fast;
-	}	
-
 	if (!State->DebugState.DebugForce)
 	{
 		if (State->DebugState.Fast)
 		{
-			while(State->Creatures->Age != NUMTESTCYCLES - 2)
-			{
-				DoOneCycle(State);
-			}
 			DoOneCycle(State);
 		}
-		else
+		else if (State->SlowTicker == 4)
 		{
 			DoOneCycle(State);
 		}
+		State->SlowTicker = (State->SlowTicker + 1) % 5;
 	}
 }
 
@@ -555,7 +446,6 @@ extern "C" GAME_RENDER(GameRender)
 	float PixelsPerMeter = (float)TileSideInPixels / (float)TileMap->TileSideInMeters;
 
 	DrawRectangle(Buffer, 0.0f, 0.0f, (float)Buffer->Width, (float)Buffer->Height, 0.0f, 0.0f, 0.0f);
-
 
 	for (int CreatureIndex = 0; CreatureIndex < State->NumCreatures; CreatureIndex++)
 	{
@@ -594,7 +484,7 @@ extern "C" GAME_RENDER(GameRender)
 		{
 			neural_net* Net = State->Nets + DebugState->CreatureToDraw;
 
-			neuron* Neuron = Net->Neurons + NeuronIndex;
+			neuron* Neuron = Net->Neurons + NeuronIndex * 2 + Net->Toggle;
 
 			float NeuronScale1, NeuronScale2, NeuronScale3;
 			ColorValues(Neuron->Firing, &NeuronScale1, &NeuronScale2, &NeuronScale3);
@@ -624,13 +514,13 @@ extern "C" GAME_RENDER(GameRender)
 		int AverageProgress = 0;
 		int DebugProgress = 0;
 
-		int SumCount = 1 + (DebugState->DebugNum1 / 960);
+		int SumCount = 1 + (DebugState->DebugNum / 960);
 		if (SumCount > DebugState->GraphSize / 960)
 		{
 			SumCount = DebugState->GraphSize / 960;
 		}
 
-		int End = DebugState->DebugNum1 / SumCount;
+		int End = DebugState->DebugNum / SumCount;
 		if (End > DebugState->GraphSize / SumCount)
 		{
 			End = DebugState->GraphSize / SumCount;
@@ -641,7 +531,7 @@ extern "C" GAME_RENDER(GameRender)
 			float Sum = 0;
 			for (int Count = 0; Count < SumCount; Count++)
 			{
-				Sum += DebugState->DebugGraph1[DebugProgress % DebugState->GraphSize];
+				Sum += DebugState->DebugGraph[DebugProgress % DebugState->GraphSize];
 				DebugProgress++;
 			}
 

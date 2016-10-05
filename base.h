@@ -173,11 +173,8 @@ typedef struct debug_state
 
 	int GraphSize;
 	
-	float DebugGraph1[GRAPHSIZE];
-	int DebugNum1;
-
-	float DebugGraph2[GRAPHSIZE];
-	int DebugNum2;
+	float DebugGraph[GRAPHSIZE];
+	int DebugNum;
 
 	int CreatureIndex;
 	int CreatureToDraw;
@@ -191,6 +188,7 @@ typedef struct debug_state
 typedef struct state
 {
 	debug_state DebugState;
+	int SlowTicker;
 
 	int NumCreatures;
 	creature* Creatures;

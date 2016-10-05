@@ -1,5 +1,7 @@
 @echo off
 
-pushd ..\..\build
+run build.bat
+
+pushd ..\..\..\build\brainnnnns
 start win32_base.exe
 popd
