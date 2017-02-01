@@ -2,6 +2,6 @@
 
 run build.bat
 
-pushd ..\..\..\build\brainnnnns
+pushd ..\..\..\build\brains
 start win32_base.exe
 popd
