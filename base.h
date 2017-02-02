@@ -94,15 +94,6 @@ uint32_t SafeTruncateUInt64(uint64_t Value)
 	return Result;
 }
 
-inline game_controller_input* GetController (game_input* Input, int ControllerIndex)
-{
-	Assert(ControllerIndex >= 0);
-	Assert(ControllerIndex < ArrayCount(Input->Controllers));
-	
-	game_controller_input* Result = &Input->Controllers[ControllerIndex];
-	return Result;
-}
-
 typedef struct memory_arena
 {
 	memory_index Size;

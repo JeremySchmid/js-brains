@@ -6,8 +6,8 @@ set CommonLinkerFlags=/link user32.lib gdi32.lib winmm.lib -subsystem:windows -o
 echo:
 pushd ..\..\..\build\brains
 del *.pdb >del-output.txt 2>del-error.txt
-cl %CommonCompilerFlages% -LD -Fmbase.map -Fd ..\..\Dropbox\source\brains\base.cpp /link -incremental:no -PDB:handmade_%random%.pdb /EXPORT:GameGetSoundSamples /EXPORT:GameUpdate /EXPORT:GameRender
-cl %CommonCompilerFlages% -Fmwin32_base.map ..\..\Dropbox\source\brains\win32_base.cpp %CommonLinkerFlags%
+cl %CommonCompilerFlages% -LD -Fmbase.map -Fd ..\..\Dropbox\c\brains\base.cpp /link -incremental:no -PDB:handmade_%random%.pdb /EXPORT:GameGetSoundSamples /EXPORT:GameUpdate /EXPORT:GameRender
+cl %CommonCompilerFlages% -Fmwin32_base.map ..\..\Dropbox\c\brains\win32_base.cpp %CommonLinkerFlags%
 popd
 echo:
 

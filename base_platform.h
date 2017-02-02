@@ -74,103 +74,72 @@ typedef struct game_sound_output_buffer
 	
 } game_sound_output_buffer;
 
-typedef struct game_button_state
+#define NUM_KEYS_HANDLED 51
+typedef enum key
+{
+	UNKNOWN,
+
+	A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X, Y, Z,
+
+	NUM_0, NUM_1, NUM_2, NUM_3, NUM_4, NUM_5, NUM_6, NUM_7, NUM_8, NUM_9,
+
+	UP,
+	DOWN,
+	LEFT,
+	RIGHT,
+
+	CTRL,
+	ALT,
+	SHIFT,
+
+	ENTER,
+	ESCAPE,
+	SPACE,
+	
+	PERIOD,
+	COMMA,
+	SEMICOLON,
+	QUOTE,
+
+} key;
+
+typedef struct key_state
 {
 	int HalfTransitionCount;
 	boolint EndedDown;
 	
-} game_button_state;
+} key_state;
 
-typedef struct average_analog
+typedef enum key_action
 {
-	float Average;
-	int NumberSoFar;
-	
-} average_analog;
+	PRESS,
+	REPEAT,
+	RELEASE,
+
+} key_action;
+
+typedef struct key_press
+{
+	key Pressed;
+	key_action Action;
+	boolint Ctrl;
+	boolint Alt;
+	boolint Shift;
+
+} key_press;
 
 typedef struct keyboard_input
 {
-
-	union {
-		game_button_state Keys[28];
-		struct {
-			game_button_state Alphabet[26];
-			game_button_state Escape;
-			game_button_state Space;
-		};
-	};
+	key_press KeyPresses[100];
+	int KeyPressesIndex;
 
 } keyboard_input;
-
-typedef struct game_controller_input
-{
-	boolint IsConnected;
-	boolint IsAnalog;
-	
-	union {
-		average_analog Analogs[6];
-		struct {
-			average_analog LT;
-			average_analog RT;
-			average_analog LX;
-			average_analog LY;
-			average_analog RX;
-			average_analog RY;
-		};
-	};
-	
-	union {
-		game_button_state Buttons[24];
-		struct {
-			//OnOff for the analogs
-			game_button_state LeftTrigger;
-			
-			game_button_state RightTrigger;
-			
-			game_button_state LeftStickRight;
-			game_button_state LeftStickLeft;
-			
-			game_button_state LeftStickUp;
-			game_button_state LeftStickDown;
-			
-			game_button_state RightStickRight;
-			game_button_state RightStickLeft;
-			
-			game_button_state RightStickUp;
-			game_button_state RightStickDown;
-			
-			game_button_state DpadUp;
-			game_button_state DpadDown;
-			game_button_state DpadLeft;
-			game_button_state DpadRight;
-			game_button_state LeftShoulder;
-			game_button_state RightShoulder;
-			game_button_state LeftAnalogPress;
-			game_button_state RightAnalogPress;
-			game_button_state AButton;
-			game_button_state BButton;
-			game_button_state XButton;
-			game_button_state YButton;
-			game_button_state Back;
-			game_button_state Start;
-			
-			#if SLOW_CODE
-			//do not use - for debug purposes!!
-			//must be the last button - not included in the union array count
-			game_button_state Terminator;
-			#endif
-		};
-	};
-	
-} game_controller_input;
 
 typedef struct game_input
 {
 
-	game_button_state MouseButtons[5];
+	key_state MouseButtons[5];
 	int MouseX, MouseY, MouseZ;
-
-	game_controller_input Controllers[5];
 
 	keyboard_input KeyboardInput;
 	

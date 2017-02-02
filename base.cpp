@@ -229,12 +229,12 @@ void ColorValues(float Value, float* R, float* G, float* B)
 	return;
 }
 
-boolint ButtonToggled(game_button_state* Button)
+boolint KeyToggled(key_state* Key)
 {
-	int HalfTransitionCount = Button->HalfTransitionCount % 4;
+	int HalfTransitionCount = Key->HalfTransitionCount % 4;
 	return ((HalfTransitionCount == 2
-			|| (Button->EndedDown && HalfTransitionCount == 1))
-			|| (!Button->EndedDown
+			|| (Key->EndedDown && HalfTransitionCount == 1))
+			|| (!Key->EndedDown
 					&& HalfTransitionCount == 3));
 }
 
@@ -304,33 +304,30 @@ void DoOneCycle(state* State)
 
 extern "C" GAME_UPDATE(GameUpdate)
 {
-	Assert(&Input->Controllers->Buttons[ArrayCount(Input->Controllers->Buttons)] == &Input->Controllers->Terminator);
 	Assert(sizeof(state) <= Memory->PermanentStorageSize);
 
 	state* State = (state*) Memory->PermanentStorage;
 
-	for (int ControllerIndex = 0; ControllerIndex < ArrayCount(Input->Controllers); ControllerIndex++)
-	{
-		game_controller_input* Controller = GetController(Input, ControllerIndex);
-	
-		if (ButtonToggled(&Controller->Start))	
-		{
-			State->DebugState.DebugMode = !State->DebugState.DebugMode;
-		}	
-		if(Controller->Back.EndedDown)
-		{
-			Memory->IsInitialized = false;
-		}
-		if (Controller->IsAnalog)
-		{
-		}
-	}
-
 	keyboard_input* Keyboard = &Input->KeyboardInput;
-	if (ButtonToggled(&Keyboard->Keys[AsciiToIndex('M')]))	
+
+	for (int PressesIndex = 0; PressesIndex < Keyboard->KeyPressesIndex; PressesIndex++)
+	{
+
+		//go through key presses and activate things as necessary - separate out? since model-view-controller
+	}
+/*
+	if (KeyToggled(&Keyboard->Keys[D]))	
+	{
+		State->DebugState.DebugMode = !State->DebugState.DebugMode;
+	}	
+	if (KeyToggled(&Keyboard->Keys[R]))	
+	{
+		Memory->IsInitialized = false;
+	}	
+	if (KeyToggled(&Keyboard->Keys[M])) //AsciiToIndex('M')]))	
 	{
 		State->DebugState.Fast = !State->DebugState.Fast;
-	}	
+	}	 */
 
 	if (!Memory->IsInitialized)
 	{

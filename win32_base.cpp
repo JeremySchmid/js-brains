@@ -33,6 +33,7 @@
 global_var boolint GlobalRunning;
 global_var boolint GlobalPause;
 global_var boolint GlobalFast;
+global_var boolint GlobalFocus;
 global_var win32_offscreen_buffer GlobalBuffer;
 global_var LPDIRECTSOUNDBUFFER GlobalSecondaryBuffer;
 global_var int64_t GlobalPerfCountFrequency;
@@ -222,26 +223,6 @@ internal void Win32DebugSyncDisplay (win32_offscreen_buffer* BackBuffer, int Mar
 	}
 }
 
-//Support for x input get state
-#define X_INPUT_GET_STATE(name) DWORD WINAPI name(DWORD dwUserIndex, XINPUT_STATE* pState)
-typedef X_INPUT_GET_STATE(x_input_get_state);
-X_INPUT_GET_STATE(XInputGetStateStub)
-{
-	return (ERROR_DEVICE_NOT_CONNECTED);
-}
-global_var x_input_get_state* XInputGetState_ = XInputGetStateStub;
-#define XInputGetState XInputGetState_
-
-//support for x input set state
-#define X_INPUT_SET_STATE(name) DWORD WINAPI name(DWORD dwUserIndex, XINPUT_VIBRATION* pVibration)
-typedef X_INPUT_SET_STATE(x_input_set_state);
-X_INPUT_SET_STATE(XInputSetStateStub)
-{
-	return (ERROR_DEVICE_NOT_CONNECTED);
-}
-global_var x_input_set_state* XInputSetState_ = XInputSetStateStub;
-#define XInputSetState XInputSetState_
-
 inline FILETIME Win32GetLastWriteTime(char* FileName)
 {
 	FILETIME LastWriteTime = {};
@@ -292,35 +273,6 @@ internal void Win32UnloadGameCode(win32_game_code* GameCode)
 	GameCode->Update = 0;
 	GameCode->Render = 0;
 	GameCode->IsValid = false;
-}
-
-internal void Win32LoadXInput(void)
-{
-	//TODO: Test on Windows 8
-	HMODULE XInputLibrary = LoadLibraryA("xinput1_4.dll");
-
-	if (!XInputLibrary)
-	{
-		//TODO: Diagnostic
-		XInputLibrary = LoadLibraryA("xinput1_3.dll");
-	}
-
-	if (!XInputLibrary)
-	{
-		//TODO: Diagnostic
-		XInputLibrary = LoadLibraryA("xinput9_1_0.dll");
-	}
-
-	if (XInputLibrary)
-	{
-		XInputGetState_ = (x_input_get_state *)GetProcAddress(XInputLibrary, "XInputGetState");
-		XInputSetState_ = (x_input_set_state *)GetProcAddress(XInputLibrary, "XInputSetState");
-		//TODO: Diagnostic
-	}
-	else {
-		//TODO: Diagnostic
-	}
-
 }
 
 internal win32_window_dimension win32_GetWindowDimension(HWND hWnd)
@@ -589,116 +541,12 @@ internal void Win32FillSoundBuffer (win32_sound_output* SoundOutput, DWORD ByteT
 	}
 }
 
-internal void Win32ProcessXInputDigitalButton(DWORD XInputButtonState, game_button_state* OldButtonState, game_button_state* NewButtonState, DWORD ButtonBit)
+internal void Win32ProcessKeyboardStateChange(key_state* NewKeyState, boolint IsDown)
 {
-	NewButtonState->EndedDown = !!(XInputButtonState & ButtonBit);
-	NewButtonState->HalfTransitionCount = (OldButtonState->EndedDown != NewButtonState->EndedDown) ? 1 : 0;
-}
-
-internal void Win32ProcessKeyboardStateChange(game_button_state* NewButtonState, boolint IsDown)
-{
-	if (NewButtonState->EndedDown != IsDown)
+	if (NewKeyState->EndedDown != IsDown)
 	{
-		NewButtonState->EndedDown = !!IsDown;
-		NewButtonState->HalfTransitionCount++;
-	}
-}
-
-internal float Win32AnalogTriggerProcessingAndDeadzone(BYTE Trigger)
-{
-	float Result = 0;
-
-	if (Trigger > 30)
-	{
-		Result = (float)Trigger / 255.0f;
-	}
-	return Result;
-}
-
-internal void Win32AnalogRoundDeadzone(float* AnalogTriggers[], SHORT* ControllerInputStick[], int XIndex, float Deadzone)
-{
-	int YIndex = XIndex + 1;
-
-	double Hypotenuse = sqrt((double)*ControllerInputStick[XIndex] * (double)*ControllerInputStick[XIndex] + (double)*ControllerInputStick[YIndex] * (double)*ControllerInputStick[YIndex]) / 32768.0;
-
-	if (Hypotenuse <= Deadzone && Hypotenuse >= -Deadzone)
-	{
-		*AnalogTriggers[XIndex] = 0.0f;
-		*AnalogTriggers[YIndex] = 0.0f;
-	}
-	else {
-		*AnalogTriggers[XIndex] = (float)*ControllerInputStick[XIndex] / 32767.0f / (float) Hypotenuse * ((float)Hypotenuse - Deadzone);
-		*AnalogTriggers[YIndex] = (float)*ControllerInputStick[YIndex] / 32767.0f / (float) Hypotenuse * ((float)Hypotenuse - Deadzone);
-	}
-
-	return;
-}
-
-internal void Win32AnalogProcessing(XINPUT_GAMEPAD* Pad, game_controller_input* Controller)
-{
-	float LT, RT, LX, LY, RX, RY;
-	float* AnalogTriggers [6] = {&LT, &RT, &LX, &LY, &RX, &RY};
-
-	BYTE* ControllerInputTrigger[2] = {&Pad->bLeftTrigger, &Pad->bRightTrigger};
-	SHORT* ControllerInputStick[6] = {0, 0, &Pad->sThumbLX, &Pad->sThumbLY, &Pad->sThumbRX, &Pad->sThumbRY};
-
-	float Deadzone = .10f;
-	for (int AnalogIndex = 0; AnalogIndex < 6; AnalogIndex++)
-	{	
-		if	(AnalogIndex < 2)
-		{
-
-			*AnalogTriggers[AnalogIndex] = Win32AnalogTriggerProcessingAndDeadzone(*ControllerInputTrigger[AnalogIndex]);
-			if (*AnalogTriggers[AnalogIndex] > (1.0f - Deadzone) && Controller->Buttons[AnalogIndex].EndedDown == 0)
-			{
-				Controller->Buttons[AnalogIndex].EndedDown = 1;
-				Controller->Buttons[AnalogIndex].HalfTransitionCount++;
-			}
-			else if (*AnalogTriggers[AnalogIndex] < Deadzone && Controller->Buttons[AnalogIndex].EndedDown == 1)
-			{
-				Controller->Buttons[AnalogIndex].EndedDown = 0;
-				Controller->Buttons[AnalogIndex].HalfTransitionCount++;
-			}
-			Controller->Analogs[AnalogIndex].Average *= Controller->Analogs[AnalogIndex].NumberSoFar;
-			Controller->Analogs[AnalogIndex].Average += *AnalogTriggers[AnalogIndex];
-			Controller->Analogs[AnalogIndex].NumberSoFar++;
-			Controller->Analogs[AnalogIndex].Average /= Controller->Analogs[AnalogIndex].NumberSoFar;
-		}
-		else if (AnalogIndex % 2 == 0)
-		{
-			Win32AnalogRoundDeadzone(AnalogTriggers, ControllerInputStick, AnalogIndex, Deadzone);
-
-			for (int XOrY = 0; XOrY < 2; XOrY++)
-			{
-				int ButtonIndex = AnalogIndex * 2 - 2 + XOrY * 2;
-				if (*AnalogTriggers[AnalogIndex] > (1.0f - Deadzone) && Controller->Buttons[ButtonIndex].EndedDown == 0)
-				{
-					Controller->Buttons[ButtonIndex].EndedDown = 1;
-					Controller->Buttons[ButtonIndex].HalfTransitionCount++;
-				}
-				else if (*AnalogTriggers[AnalogIndex] < Deadzone && Controller->Buttons[ButtonIndex].EndedDown == 1)
-				{
-					Controller->Buttons[ButtonIndex].EndedDown = 0;
-					Controller->Buttons[ButtonIndex].HalfTransitionCount++;
-				}
-				ButtonIndex++;
-				if (-(*AnalogTriggers[AnalogIndex]) > (1.0f - Deadzone) && Controller->Buttons[ButtonIndex].EndedDown == 0)
-				{
-					Controller->Buttons[ButtonIndex].EndedDown = 1;
-					Controller->Buttons[ButtonIndex].HalfTransitionCount++;
-				}
-				else if (-(*AnalogTriggers[AnalogIndex]) < Deadzone && Controller->Buttons[ButtonIndex].EndedDown == 1)
-				{
-					Controller->Buttons[ButtonIndex].EndedDown = 0;
-					Controller->Buttons[ButtonIndex].HalfTransitionCount++;
-				}
-
-				Controller->Analogs[AnalogIndex + XOrY].Average *= Controller->Analogs[AnalogIndex + XOrY].NumberSoFar;
-				Controller->Analogs[AnalogIndex + XOrY].Average += *AnalogTriggers[AnalogIndex + XOrY];
-				Controller->Analogs[AnalogIndex + XOrY].NumberSoFar++;
-				Controller->Analogs[AnalogIndex + XOrY].Average /= Controller->Analogs[AnalogIndex + XOrY].NumberSoFar;
-			}
-		}
+		NewKeyState->EndedDown = !!IsDown;
+		NewKeyState->HalfTransitionCount++;
 	}
 }
 
@@ -797,7 +645,73 @@ internal void Win32PlaybackInput(win32_state* State, game_input* NewInput)
 	}
 }
 
-internal void Win32ProcessPendingMessages(win32_state* State, game_controller_input* KeyboardController, keyboard_input* KeyboardInput)
+internal key KeyFromVKCode(int VKCode)
+{
+	key Result = UNKNOWN;
+
+	switch (VKCode)
+	{
+		case 'A': Result = A; break;
+		case 'B': Result = B; break;
+		case 'C': Result = C; break;
+		case 'D': Result = D; break;
+		case 'E': Result = E; break;
+		case 'F': Result = F; break;
+		case 'G': Result = G; break;
+		case 'H': Result = H; break;
+		case 'I': Result = I; break;
+		case 'J': Result = J; break;
+		case 'K': Result = K; break;
+		case 'L': Result = L; break;
+		case 'M': Result = M; break;
+		case 'N': Result = N; break;
+		case 'O': Result = O; break;
+		case 'P': Result = P; break;
+		case 'Q': Result = Q; break;
+		case 'R': Result = R; break;
+		case 'S': Result = S; break;
+		case 'T': Result = T; break;
+		case 'U': Result = U; break;
+		case 'V': Result = V; break;
+		case 'W': Result = W; break;
+		case 'X': Result = X; break;
+		case 'Y': Result = Y; break;
+		case 'Z': Result = Z; break;
+
+		case '0': Result = NUM_0; break;
+		case '1': Result = NUM_1; break;
+		case '2': Result = NUM_2; break;
+		case '3': Result = NUM_3; break;
+		case '4': Result = NUM_4; break;
+		case '5': Result = NUM_5; break;
+		case '6': Result = NUM_6; break;
+		case '7': Result = NUM_7; break;
+		case '8': Result = NUM_8; break;
+		case '9': Result = NUM_9; break;
+
+		case VK_CONTROL: Result = CTRL; break;
+		case VK_MENU: Result = ALT; break;
+		case VK_SHIFT: Result = SHIFT; break;
+
+		case VK_RETURN: Result = ENTER; break;
+		case VK_ESCAPE: Result = ESCAPE; break;
+		case VK_SPACE: Result = SPACE; break;
+
+		case VK_UP: Result = UP; break;
+		case VK_DOWN: Result = DOWN; break;
+		case VK_LEFT: Result = LEFT; break;
+		case VK_RIGHT: Result = RIGHT; break;
+		
+		case VK_OEM_PERIOD: Result = PERIOD; break;
+		case VK_OEM_COMMA: Result = COMMA; break;
+		case VK_OEM_1: Result = SEMICOLON; break;
+		case VK_OEM_7: Result = QUOTE; break;
+	}
+
+	return Result;
+}
+
+internal void Win32ProcessPendingMessages(win32_state* State, keyboard_input* KeyboardInput)
 {
 	MSG Message;
 	while(PeekMessage(&Message, 0, 0, 0, PM_REMOVE))
@@ -809,6 +723,17 @@ internal void Win32ProcessPendingMessages(win32_state* State, game_controller_in
 
 		switch (Message.message)
 		{
+			// cases for mouse movement/clicks??? right now its using GetKey
+
+			case WM_SETFOCUS:
+				GlobalFocus = true;
+				//GlobalPause = false;
+				break;
+			case WM_KILLFOCUS:
+				//GlobalPause = true;
+				
+				GlobalFocus = false;
+				break;
 			case WM_SYSKEYDOWN:
 			case WM_SYSKEYUP:
 			case WM_KEYDOWN:
@@ -817,146 +742,74 @@ internal void Win32ProcessPendingMessages(win32_state* State, game_controller_in
 					uint64_t VKCode = Message.wParam;
 					bool WasDown = ((Message.lParam & (1 << 30)) != 0);
 					bool IsDown = ((Message.lParam & (1 << 31)) == 0);
-					if (WasDown != IsDown)
+					
+					key_press Key = {UNKNOWN};
+					Key.Pressed = KeyFromVKCode((int)VKCode);
+					if (!IsDown)
 					{
-						if ((VKCode >= 'A' && VKCode <= 'Z') ||
-								(VKCode >= 'a' && VKCode <= 'z'))
+						Key.Action = RELEASE;
+					}
+					else if (WasDown == IsDown)
+					{
+						Key.Action = REPEAT;
+					}
+					else if (!WasDown)
+					{
+						Key.Action = PRESS;
+					}
+					Key.Alt = (Message.lParam & (1 << 29));
+					Key.Ctrl = GetKeyState(VK_CONTROL) & (1 << 15);
+					Key.Shift = GetKeyState(VK_SHIFT) & (1 << 15);
+
+					KeyboardInput->KeyPresses[KeyboardInput->KeyPressesIndex++] = Key;
+
+					if (Key.Action != REPEAT && IsDown)
+					{
+						switch (Key.Pressed)
 						{
-							Win32ProcessKeyboardStateChange(&KeyboardInput->Alphabet[AsciiToIndex((int)VKCode)], IsDown);
-						}
-						switch (VKCode)
-						{
-							//TODO: consider, what, a table of function pointers to carry out rebinding keys, and switch the pointer values or something similar? for rebindable keys
-							case VK_OEM_COMMA:
-								{ //,
-									Win32ProcessKeyboardStateChange(&KeyboardController->LeftStickUp, IsDown);
-
-								} break;
-
-							case 'A':
+							//TODO: consider, what, a table of function pointers to carry out rebinding keys, and switch the pointer values or something similar? for rebindable keys - maybe a file with the input key and the key given to the program?
+							case SPACE:
 								{
-									Win32ProcessKeyboardStateChange(&KeyboardController->LeftStickLeft, IsDown);
-
-
+									GlobalPause = !GlobalPause;
 								} break;
 
-							case 'O':
+							case M:
 								{
-									Win32ProcessKeyboardStateChange(&KeyboardController->LeftStickDown, IsDown);
-
-								} break;
-
-							case 'E':
-								{
-									Win32ProcessKeyboardStateChange(&KeyboardController->LeftStickRight, IsDown);
-
-								} break;
-
-							case VK_OEM_7:
-								{ //'
-									Win32ProcessKeyboardStateChange(&KeyboardController->LeftShoulder, IsDown);
-								} break;
-
-							case VK_OEM_PERIOD:
-								{
-									Win32ProcessKeyboardStateChange(&KeyboardController->RightShoulder, IsDown);
-								} break;
-
-							case VK_UP:
-								{
-									Win32ProcessKeyboardStateChange(&KeyboardController->YButton, IsDown);
-								} break;
-
-							case VK_DOWN:
-								{
-									Win32ProcessKeyboardStateChange(&KeyboardController->AButton, IsDown);
-								} break;
-
-							case VK_RIGHT:
-								{
-									Win32ProcessKeyboardStateChange(&KeyboardController->BButton, IsDown);
-								} break;
-
-							case VK_LEFT:
-								{
-									Win32ProcessKeyboardStateChange(&KeyboardController->XButton, IsDown);
-								} break;
-
-							case VK_LBUTTON:
-								{
-								} break;
-
-							case VK_RBUTTON:
-								{
-								} break;
-
-							case VK_ESCAPE:
-								{
-									Win32ProcessKeyboardStateChange(&KeyboardController->Back, IsDown);
-								} break;
-
-							case VK_RETURN:
-								{
-									Win32ProcessKeyboardStateChange(&KeyboardController->Start, IsDown);
-								} break;
-
-							case VK_SPACE:
-								{
-									if (IsDown)
-									{
-										GlobalPause = !GlobalPause;
-									}
-								} break;
-
-							case 'M':
-								{
-									if (IsDown)
-									{
 										GlobalFast = !GlobalFast;
-									}
 								} break;
 
-							case 'F':
+							case F:
 								{
-									if (IsDown)
+									Win32EndPlaybackInput(State);
+									if (State->InputRecordingIndex == -1)
 									{
-										Win32EndPlaybackInput(State);
-										if (State->InputRecordingIndex == -1)
-										{
-											Win32BeginRecordingInput(State, State->ReplayBufferChoice);
-										}
-										else {
-											Win32EndRecordingInput(State);
-											Win32BeginPlaybackInput(State, State->ReplayBufferChoice);
-										}
+										Win32BeginRecordingInput(State, State->ReplayBufferChoice);
 									}
-								} break;
-
-							case 'G':
-								{
-									if (IsDown)
-									{
+									else {
 										Win32EndRecordingInput(State);
-										Win32EndPlaybackInput(State);
 										Win32BeginPlaybackInput(State, State->ReplayBufferChoice);
 									}
 								} break;
 
-							case 'C':
+							case G:
 								{
-									if (IsDown)
-									{
-										Win32EndRecordingInput(State);
-										Win32EndPlaybackInput(State);
-									}
+									Win32EndRecordingInput(State);
+									Win32EndPlaybackInput(State);
+									Win32BeginPlaybackInput(State, State->ReplayBufferChoice);
 								} break;
 
-							case '1':
-							case '2':
-							case '3':
-							case '4':
+							case C:
 								{
-									State->ReplayBufferChoice = (int)(VKCode - 0x31); //translates vkcode of '1' to the int 0
+									Win32EndRecordingInput(State);
+									Win32EndPlaybackInput(State);
+								} break;
+
+							case NUM_1:
+							case NUM_2:
+							case NUM_3:
+							case NUM_4:
+								{
+									State->ReplayBufferChoice = (int)(Key.Pressed - NUM_1); //translates KeyPress of '1'/NUM_1 to the int 0
 								} break;
 						}
 					}
@@ -997,25 +850,11 @@ internal void Win32GetExeFileName(win32_state* State)
 void GetInput(win32_state* State, HWND Window, game_input* OldInput, game_input* NewInput)
 {
 
-	game_controller_input* OldKeyboardController = GetController(OldInput, 0);
-	game_controller_input* NewKeyboardController = GetController(NewInput, 0);
-	*NewKeyboardController = *OldKeyboardController;
-	NewKeyboardController->IsConnected = true;
-	for (int ButtonIndex = 0; ButtonIndex < ArrayCount(NewKeyboardController->Buttons); ButtonIndex++)
-	{
-		NewKeyboardController->Buttons[ButtonIndex].HalfTransitionCount = 0;
-	}	
-
-
 	keyboard_input* OldKeyboardInput = &OldInput->KeyboardInput;
 	keyboard_input* NewKeyboardInput = &NewInput->KeyboardInput;
 	*NewKeyboardInput = *OldKeyboardInput;
-	for (int KeyIndex = 0; KeyIndex < ArrayCount(NewKeyboardInput->Keys); KeyIndex++)
-	{
-		NewKeyboardInput->Keys[KeyIndex].HalfTransitionCount = 0;
-	}
 
-	Win32ProcessPendingMessages(State, NewKeyboardController, NewKeyboardInput);
+	Win32ProcessPendingMessages(State, NewKeyboardInput);
 
 	POINT MouseP;
 	GetCursorPos(&MouseP);
@@ -1028,73 +867,6 @@ void GetInput(win32_state* State, HWND Window, game_input* OldInput, game_input*
 	Win32ProcessKeyboardStateChange(&NewInput->MouseButtons[2], GetKeyState(VK_RBUTTON) & (1 << 15));
 	Win32ProcessKeyboardStateChange(&NewInput->MouseButtons[3], GetKeyState(VK_XBUTTON1) & (1 << 15));
 	Win32ProcessKeyboardStateChange(&NewInput->MouseButtons[4], GetKeyState(VK_XBUTTON2) & (1 << 15));
-
-	//TODO: Need to not poll disconnected controllers to avoid framerate hit on older XINPUT libraries - check for controllers intermittently
-	//TODO: Should we poll this more frequently?
-	DWORD MaxControllerCount = XUSER_MAX_COUNT;
-	if(MaxControllerCount > ArrayCount(NewInput->Controllers) - 1)
-	{
-		MaxControllerCount = ArrayCount(NewInput->Controllers) - 1;
-	}
-	for(DWORD ControllerIndex = 0; ControllerIndex < MaxControllerCount; ControllerIndex++)
-	{
-
-		DWORD OurControllerIndex = ControllerIndex + 1;
-		game_controller_input* OldController = GetController(OldInput, (int)OurControllerIndex);
-		game_controller_input* NewController = GetController(NewInput, (int)OurControllerIndex);
-
-
-		XINPUT_STATE ControllerState;
-		if(XInputGetState(ControllerIndex, &ControllerState) == ERROR_SUCCESS)
-		{
-			NewController->IsConnected = true;
-			NewController->IsAnalog = OldController->IsAnalog;
-			NewController->LX.NumberSoFar = 0;
-			NewController->LY.NumberSoFar = 0;
-			NewController->RX.NumberSoFar = 0;
-			NewController->RY.NumberSoFar = 0;
-
-			for (int ButtonIndex = 0; ButtonIndex < ArrayCount(NewController->Buttons); ButtonIndex++)
-			{
-				NewController->Buttons[ButtonIndex].HalfTransitionCount = 0;
-			}							
-
-			//See if ControllerState.dwPacketNumber increments too rapidly
-			//Controller is plugged in
-
-			XINPUT_GAMEPAD* Pad = &ControllerState.Gamepad;
-
-			//TODO: implement DPAD and everything else
-			boolint Up = (Pad->wButtons & XINPUT_GAMEPAD_DPAD_UP);
-			boolint Down = (Pad->wButtons & XINPUT_GAMEPAD_DPAD_DOWN);
-			boolint Left = (Pad->wButtons & XINPUT_GAMEPAD_DPAD_LEFT);
-			boolint Right = (Pad->wButtons & XINPUT_GAMEPAD_DPAD_RIGHT);
-
-			boolint Start = (Pad->wButtons & XINPUT_GAMEPAD_START);
-			boolint Back = (Pad->wButtons & XINPUT_GAMEPAD_BACK);
-			boolint LeftAnalog = (Pad->wButtons & XINPUT_GAMEPAD_LEFT_THUMB);
-			boolint RightAnalog = (Pad->wButtons & XINPUT_GAMEPAD_RIGHT_THUMB);
-
-			Win32AnalogProcessing(Pad, NewController);
-
-			//TODO: Min/Max Macros!
-
-			Win32ProcessXInputDigitalButton(Pad->wButtons, &OldController->AButton, &NewController->AButton, XINPUT_GAMEPAD_A);
-			Win32ProcessXInputDigitalButton(Pad->wButtons, &OldController->BButton, &NewController->BButton, XINPUT_GAMEPAD_B);
-			Win32ProcessXInputDigitalButton(Pad->wButtons, &OldController->XButton, &NewController->XButton, XINPUT_GAMEPAD_X);
-			Win32ProcessXInputDigitalButton(Pad->wButtons, &OldController->YButton, &NewController->YButton, XINPUT_GAMEPAD_Y);
-			Win32ProcessXInputDigitalButton(Pad->wButtons, &OldController->LeftShoulder, &NewController->LeftShoulder, XINPUT_GAMEPAD_LEFT_SHOULDER);
-			Win32ProcessXInputDigitalButton(Pad->wButtons, &OldController->RightShoulder, &NewController->RightShoulder, XINPUT_GAMEPAD_RIGHT_SHOULDER);
-			Win32ProcessXInputDigitalButton(Pad->wButtons, &OldController->Back, &NewController->Back, XINPUT_GAMEPAD_BACK);
-			Win32ProcessXInputDigitalButton(Pad->wButtons, &OldController->Start, &NewController->Start, XINPUT_GAMEPAD_START);
-
-
-		}
-		else {
-			NewController->IsConnected = false;
-			//Controller is not available
-		}
-	}
 
 	return;
 }
@@ -1110,6 +882,8 @@ void ResetInput(game_input* OldInput, game_input* NewInput)
 
 int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int ShowCode)
 {
+	GlobalFocus = true;
+
 	win32_state State = {};
 	State.InputRecordingIndex = -1;
 	State.InputPlaybackIndex = -1;
@@ -1128,8 +902,6 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 	//note: set the windows scheduler granularity to 1ms
 	UINT DesiredSchedulerMilliseconds = 1;
 	boolint SleepIsGranular = (timeBeginPeriod(DesiredSchedulerMilliseconds) == TIMERR_NOERROR);
-
-	Win32LoadXInput();
 
 	WNDCLASSA WindowClass = {};
 
