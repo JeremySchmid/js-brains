@@ -777,7 +777,7 @@ internal void Win32ProcessPendingMessages(win32_state* State, keyboard_input* Ke
 								{
 										GlobalFast = !GlobalFast;
 								} break;
-
+/*
 							case F:
 								{
 									Win32EndPlaybackInput(State);
@@ -811,6 +811,7 @@ internal void Win32ProcessPendingMessages(win32_state* State, keyboard_input* Ke
 								{
 									State->ReplayBufferChoice = (int)(Key.Pressed - NUM_1); //translates KeyPress of '1'/NUM_1 to the int 0
 								} break;
+								*/
 						}
 					}
 

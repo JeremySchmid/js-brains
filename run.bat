@@ -1,6 +1,6 @@
 @echo off
 
-run build.bat
+call build.bat
 
 pushd ..\..\..\build\brains
 start win32_base.exe

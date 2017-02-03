@@ -310,24 +310,32 @@ extern "C" GAME_UPDATE(GameUpdate)
 
 	keyboard_input* Keyboard = &Input->KeyboardInput;
 
+	//go through key presses and activate things as necessary - separate out? since model-view-controller
 	for (int PressesIndex = 0; PressesIndex < Keyboard->KeyPressesIndex; PressesIndex++)
 	{
+		key Pressed = Keyboard->KeyPresses[PressesIndex].Pressed;
 
-		//go through key presses and activate things as necessary - separate out? since model-view-controller
+		if (Keyboard->KeyPresses[PressesIndex].Action == PRESS)
+		{
+			switch (Pressed)
+			{
+				case D:
+					{
+						State->DebugState.DebugMode = !State->DebugState.DebugMode;
+					} break;
+				case ESCAPE:
+					{
+						Memory->IsInitialized = false;
+					} break;
+				case M:
+					{
+						State->DebugState.Fast = !State->DebugState.Fast;
+					} break;
+			}
+		}
 	}
-/*
-	if (KeyToggled(&Keyboard->Keys[D]))	
-	{
-		State->DebugState.DebugMode = !State->DebugState.DebugMode;
-	}	
-	if (KeyToggled(&Keyboard->Keys[R]))	
-	{
-		Memory->IsInitialized = false;
-	}	
-	if (KeyToggled(&Keyboard->Keys[M])) //AsciiToIndex('M')]))	
-	{
-		State->DebugState.Fast = !State->DebugState.Fast;
-	}	 */
+
+	Keyboard->KeyPressesIndex = 0;
 
 	if (!Memory->IsInitialized)
 	{
